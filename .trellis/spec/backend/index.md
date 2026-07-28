@@ -6,7 +6,14 @@
 
 ## Overview
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+Guidelines for the Go backend (`server/`), the Go Windows client
+(`client-windows/`), and the shared contract module (`shared/`).
+
+Greenfield note: these specs were seeded on 2026-07-28 from the confirmed tech
+decisions in `.trellis/tasks/07-28-cyberstalk-me/design.md` (Go + chi + SQLite
+via `modernc.org/sqlite` + SSE, no CGO). Code examples are canonical patterns to
+follow, not extracts from existing code. When real code diverges for a good
+reason, update the spec in the same task.
 
 ---
 
@@ -14,24 +21,15 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [Directory Structure](./directory-structure.md) | Monorepo layout, Go workspace, package boundaries | Filled |
+| [Database Guidelines](./database-guidelines.md) | SQLite/`database/sql` patterns, schema, upserts | Filled |
+| [Error Handling](./error-handling.md) | Error wrapping, sentinels, API error shape | Filled |
+| [Quality Guidelines](./quality-guidelines.md) | Tooling gates, forbidden patterns, testing | Filled |
+| [Logging Guidelines](./logging-guidelines.md) | `log/slog` usage, levels, privacy rules | Filled |
 
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+Cross-cutting rule worth repeating: **sanitization is the product's security
+model** — raw window titles, device tokens, and visitor data never enter logs,
+storage, or the wire contract.
 
 ---
 

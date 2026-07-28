@@ -1,51 +1,82 @@
 # Error Handling
 
-> How errors are handled in this project.
+> How errors are handled in the Go backend and Windows client.
 
 ---
 
-## Overview
+## Principles
 
-<!--
-Document your project's error handling conventions here.
-
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
-
-(To be filled by the team)
+- Standard Go error handling: return `error`, wrap with context using
+  `fmt.Errorf("doing X for %s: %w", id, err)`, check with `errors.Is` /
+  `errors.As`. No custom error framework.
+- Errors are **logged once**, at the top of the call chain (HTTP handler or the
+  client's report loop). Lower layers wrap and return; they do not log.
+- `panic` is never used for control flow. Handlers run behind chi's `Recoverer`
+  middleware as a last resort only.
 
 ---
 
-## Error Types
+## Sentinel Errors
 
-<!-- Custom error classes/types -->
+Define sentinels in the package that owns the condition:
 
-(To be filled by the team)
+```go
+// server/internal/store/store.go
+var ErrDeviceNotFound = errors.New("device not found")
 
----
+// server/internal/api/auth.go
+var ErrBadToken = errors.New("invalid device token")
+```
 
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
+Handlers map sentinels to HTTP status codes with `errors.Is`; unknown errors
+become 500.
 
 ---
 
 ## API Error Responses
 
-<!-- Standard error response format -->
+All error responses are JSON with a single stable shape:
 
-(To be filled by the team)
+```json
+{ "error": "invalid device token" }
+```
+
+Status code mapping:
+
+| Condition | Status |
+|-----------|--------|
+| Malformed JSON body / missing required fields | 400 |
+| Missing or invalid `Authorization: Bearer` token, token/device_id mismatch | 401 |
+| Unknown `device_id` | 404 |
+| Anything unexpected | 500 (body is the generic `"internal error"` — never the wrapped error text) |
+
+Write them through one helper so the shape can't drift:
+
+```go
+func writeError(w http.ResponseWriter, status int, msg string) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+```
 
 ---
 
-## Common Mistakes
+## Client (Windows agent) Errors
 
-<!-- Error handling mistakes your team has made -->
+- A failed report POST is **not fatal**: log a warning, retry with exponential
+  backoff (cap ~2 minutes), keep the loop alive. The agent must survive server
+  restarts and network drops indefinitely.
+- Collector failures (a Win32 call errors) degrade the field to its zero/null
+  value for that cycle instead of skipping the report.
 
-(To be filled by the team)
+---
+
+## Common Mistakes to Avoid
+
+- Returning the internal error string in a 500 body — it can leak paths or SQL.
+- Logging the same error at every layer (log once at the top).
+- Wrapping with no added context (`fmt.Errorf("%w", err)` adds nothing — say
+  what was being attempted).
+- Swallowing errors from `json.NewEncoder(...).Encode` in SSE writes — a write
+  error means the subscriber is gone and must be unsubscribed.
