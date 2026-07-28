@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -92,7 +93,7 @@ type fakeClock struct {
 func (f *fakeClock) now() time.Time { return f.t }
 
 func jsonMarshal(p shared.ReportPayload) ([]byte, error) {
-	return jsonMarshalImpl(p)
+	return json.Marshal(p)
 }
 
 // TestTrackerConcurrentMarkOnlineAndScan hammers MarkOnline and scanOnce

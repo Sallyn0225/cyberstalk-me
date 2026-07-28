@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -86,7 +87,7 @@ func TestUpsertAndListStates(t *testing.T) {
 		Network:    &net,
 		ReportedAt: time.Date(2026, 7, 28, 10, 30, 0, 0, time.UTC),
 	}
-	payloadJSON := jsonMarshal(p1)
+	payloadJSON := jsonMarshal(t, p1)
 	if err := s.UpsertState(ctx, "win-1", payloadJSON, p1.ReportedAt, p1.ReportedAt.Add(2*time.Second)); err != nil {
 		t.Fatalf("upsert 1: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestUpsertAndListStates(t *testing.T) {
 		Network:    &net,
 		ReportedAt: time.Date(2026, 7, 28, 10, 31, 0, 0, time.UTC),
 	}
-	if err := s.UpsertState(ctx, "and-1", jsonMarshal2(p2), p2.ReportedAt, p2.ReportedAt); err != nil {
+	if err := s.UpsertState(ctx, "and-1", jsonMarshal(t, p2), p2.ReportedAt, p2.ReportedAt); err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
 	rows, err = s.ListStates(ctx)
@@ -125,7 +126,7 @@ func TestUpsertAndListStates(t *testing.T) {
 	// Upsert overwrites rather than accumulating (latest-state-only).
 	p1Updated := p1
 	p1Updated.Activity.App = "IntelliJ"
-	if err := s.UpsertState(ctx, "win-1", jsonMarshal2(p1Updated), p1Updated.ReportedAt, p1Updated.ReportedAt.Add(3*time.Second)); err != nil {
+	if err := s.UpsertState(ctx, "win-1", jsonMarshal(t, p1Updated), p1Updated.ReportedAt, p1Updated.ReportedAt.Add(3*time.Second)); err != nil {
 		t.Fatalf("upsert overwrite: %v", err)
 	}
 	rows, _ = s.ListStates(ctx)
@@ -178,7 +179,7 @@ func TestSetLastSeenUpdatesRow(t *testing.T) {
 		t.Fatalf("register: %v", err)
 	}
 	old := time.Date(2026, 7, 28, 10, 0, 0, 0, time.UTC)
-	if err := s.UpsertState(ctx, "d1", jsonMarshal2(shared.ReportPayload{DeviceID: "d1", DeviceType: "windows", Activity: shared.Activity{App: "a"}}), old, old); err != nil {
+	if err := s.UpsertState(ctx, "d1", jsonMarshal(t, shared.ReportPayload{DeviceID: "d1", DeviceType: "windows", Activity: shared.Activity{App: "a"}}), old, old); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
 	stale := old.Add(-5 * time.Minute)
@@ -196,13 +197,14 @@ func TestSetLastSeenUpdatesRow(t *testing.T) {
 
 func ptrInt(v int) *int { return &v }
 
-// jsonMarshal is a small helper to keep test payloads readable.
-func jsonMarshal(p shared.ReportPayload) []byte { return jsonMarshal2(p) }
-
-func jsonMarshal2(p shared.ReportPayload) []byte {
-	b, err := jsonMarshalErr(p)
+// jsonMarshal marshals p for test payloads. json.Marshal of a ReportPayload
+// cannot fail in practice, but t.Fatal keeps the test honest instead of
+// panicking (spec: no panic outside main.go).
+func jsonMarshal(t *testing.T, p shared.ReportPayload) []byte {
+	t.Helper()
+	b, err := json.Marshal(p)
 	if err != nil {
-		panic(err)
+		t.Fatalf("marshal payload: %v", err)
 	}
 	return b
 }

@@ -54,3 +54,14 @@
 **spec 更新**：`backend/quality-guidelines.md` Tooling 节补「Windows `-race` 需 mingw-w64 gcc（cgo），生产构建仍 `CGO_ENABLED=0`」。
 
 **遗留**：check 轻微观察未做（store_test panic→t.Fatal、单函数文件内联、register-device 补测试、web embed 路径约定属 web 子任务）。未 commit。
+
+---
+
+## 2026-07-28 · backend 轻微观察清理
+
+处理 check 遗留的 3 项轻微观察（web embed 路径属 web 子任务，404 不可达可接受，不动）：
+- register-device：新增 `cmd/server/main_test.go`，覆盖正常路径（stdout 一次性 token + config 片段、设备落库 + sha256 哈希、明文 ≠ 哈希且 HashToken(明文)=哈希）+ 参数校验错误路径。
+- 单函数文件：内联 `store/json.go`(decodeJSON) 回 `store.go`、`store/json_test.go`+`state/json_test.go`(jsonMarshal helpers) 回各自 `_test.go`，删 3 个单函数文件（spec：不为单函数建文件）。
+- panic：`store_test` 的 jsonMarshal2 panic → 合并的 `jsonMarshal(t,p)` 用 `t.Fatal`（spec：main.go 外无 panic）。
+
+全门禁绿：gofmt / vet / build / test / `-race` / `CGO_ENABLED=0 GOOS=linux` build。已 commit。

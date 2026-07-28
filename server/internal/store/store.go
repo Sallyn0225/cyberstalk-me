@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	_ "embed" // for schema embed
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -218,7 +219,7 @@ func (s *Store) GetState(ctx context.Context, id string) (StateRow, error) {
 			DeviceType: sr.DeviceType,
 		}, nil
 	}
-	if err := decodeJSON(reportJSON.String, &sr.Payload); err != nil {
+	if err := json.Unmarshal([]byte(reportJSON.String), &sr.Payload); err != nil {
 		return StateRow{}, fmt.Errorf("decode payload for %s: %w", id, err)
 	}
 	rt, err := time.Parse(time.RFC3339, reportedAt)
@@ -255,7 +256,7 @@ func (s *Store) ListStates(ctx context.Context) ([]StateRow, error) {
 		if err := rows.Scan(&sr.DeviceID, &sr.DeviceName, &sr.DeviceType, &reportJSON, &reportedAt, &lastSeenAt); err != nil {
 			return nil, fmt.Errorf("scan state row: %w", err)
 		}
-		if err := decodeJSON(reportJSON, &sr.Payload); err != nil {
+		if err := json.Unmarshal([]byte(reportJSON), &sr.Payload); err != nil {
 			return nil, fmt.Errorf("decode payload for %s: %w", sr.DeviceID, err)
 		}
 		rt, err := time.Parse(time.RFC3339, reportedAt)
