@@ -16,6 +16,13 @@ go build ./...      # with CGO_ENABLED=0
 No golangci-lint requirement for the MVP; `gofmt` + `go vet` + tests is the
 bar. If golangci-lint is added later, update this file with the chosen config.
 
+The race detector (`go test -race`) is also required (see Code Review
+Checklist). On Windows it needs a C compiler, because race support is built
+on cgo: install mingw-w64 (e.g. a WinLibs UCRT build) and put its `bin` on
+`PATH` so `gcc` is found, then run `CGO_ENABLED=1 go test -race ./...`.
+The production build stays `CGO_ENABLED=0` — gcc is only needed for the
+race-enabled test run, not for the shipped binary.
+
 ---
 
 ## Required Patterns

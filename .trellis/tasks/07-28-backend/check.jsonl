@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "检查门禁：go build/vet/test 全过，核对禁用模式清单"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "安全关键：确认日志与数据库中无明文 token、无敏感字段"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对所有端点错误响应形状一致、错误包装符合规范"}
+{"file": ".trellis/spec/backend/index.md", "reason": "脱敏红线 cross-cutting rule，安全项检查判定依据"}
+{"file": ".trellis/tasks/07-28-backend/prd.md", "reason": "本子任务验收标准清单（AC6/AC3 后端部分/安全抽查）"}
+{"file": ".trellis/spec/guides/index.md", "reason": "交叉评审误报核验规则与验证纪律"}

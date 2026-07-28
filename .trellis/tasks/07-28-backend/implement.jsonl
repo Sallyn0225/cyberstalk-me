@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/07-28-cyberstalk-me/prd.md", "reason": "父任务需求（R2.1–R2.4、R1.4 服务端侧）与验收标准（AC3/AC6）出处"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/design.md", "reason": "技术方案 §1–§3/§6：契约 JSON、SQLite 两表、SSE fan-out、token 哈希鉴权、register-device CLI、在线判定以服务端时间为准"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/implement.md", "reason": "阶段 0（骨架+契约）与阶段 1（后端）的执行清单与验证点"}
+{"file": ".trellis/spec/backend/index.md", "reason": "规范总索引与脱敏红线：原始标题、token、访客数据不入日志/存储/契约"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "go.work + shared/ + server/ + client-windows/ 目录树，阶段 0 骨架照此创建"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite/database/sql 模式、建表与 upsert 写法"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "错误包装、sentinel、API 错误响应形状，三个端点统一遵循"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "slog 用法与隐私规则：token 等敏感信息禁止入日志"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Go 侧工具门禁（build/vet/test）、禁用模式与测试要求"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "契约字段贯穿 客户端→后端→SSE→前端，定义/修改 shared struct 前先过此清单"}
