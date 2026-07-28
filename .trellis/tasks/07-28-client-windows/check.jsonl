@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "检查门禁：go build/vet/test 全过，Win32 采集层豁免范围核对"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "核对客户端日志无原始标题、无 token"}
+{"file": ".trellis/spec/backend/index.md", "reason": "安全关键：抽查上报 payload，确认原始窗口标题绝不外泄（AC1 红线）"}
+{"file": ".trellis/tasks/07-28-client-windows/prd.md", "reason": "本子任务验收标准清单（AC1/断网韧性）"}
+{"file": ".trellis/spec/guides/index.md", "reason": "交叉评审误报核验规则与验证纪律"}

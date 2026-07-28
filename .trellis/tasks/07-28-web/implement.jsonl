@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/07-28-cyberstalk-me/prd.md", "reason": "父任务需求（R3.1–R3.3）与验收标准（AC4/AC5）出处"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/design.md", "reason": "技术方案 §4（前端）与 §2（契约 JSON 字段与可空约定），SSE 重连后重拉 snapshot 的要求"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/implement.md", "reason": "阶段 2 执行清单与验证点"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "规范总索引与核心不变量：前端只读，contract.ts 与 shared/ 同任务同步"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "web/src 扁平布局与命名约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "展示组件约定：shadcn/ui 优先不手写、Tailwind 样式、lucide-react 图标、Framer Motion 动效、a11y"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "useDeviceStream 契约与 SSE 生命周期（含断线重连）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "不引状态库，单一 hook 拥有服务端状态"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "types/contract.ts 镜像 Go struct 的规则与运行时解析守卫"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/type 门禁、依赖引入政策与测试要求"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "消费契约字段时核对 后端→SSE→前端 数据流是否贯通"}

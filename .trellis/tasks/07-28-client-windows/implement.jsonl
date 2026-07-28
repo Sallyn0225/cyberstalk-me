@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/07-28-cyberstalk-me/prd.md", "reason": "父任务需求（R1.1/R1.3/R1.4）与验收标准（AC1）出处，脱敏边界定义"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/design.md", "reason": "技术方案 §5.1（Win32 采集 API 清单、config.yaml 映射规则）与 §2（上报契约）"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/implement.md", "reason": "阶段 3 执行清单与验证点"}
+{"file": ".trellis/spec/backend/index.md", "reason": "脱敏红线：原始窗口标题绝不离开设备，不入 payload/日志/磁盘"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "client-windows/ 模块在 go.work 中的位置与包边界"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "客户端 Go 代码同样遵循错误包装规范；上报失败重试退避"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "客户端日志同样不得记录原始标题与 token"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Go 门禁与 Win32 采集层（client-windows/internal/collect）的单测豁免说明"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "上报字段变更需核对 shared struct 与后端/前端是否同步"}

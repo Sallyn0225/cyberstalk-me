@@ -21,7 +21,7 @@ diverges for a good reason, update the spec in the same task.
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Directory Structure](./directory-structure.md) | Flat `web/src` layout, naming | Filled |
-| [Component Guidelines](./component-guidelines.md) | Presentational components, props, plain CSS, a11y | Filled |
+| [Component Guidelines](./component-guidelines.md) | shadcn/ui-first components, Tailwind, lucide icons, Framer Motion, a11y | Filled |
 | [Hook Guidelines](./hook-guidelines.md) | `useDeviceStream` contract, SSE lifecycle | Filled |
 | [State Management](./state-management.md) | No state library; one hook owns server state | Filled |
 | [Quality Guidelines](./quality-guidelines.md) | Lint/type gates, dependency policy, testing | Filled |

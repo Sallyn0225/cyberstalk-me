@@ -1,0 +1,31 @@
+{
+  "id": "cyberstalk-me",
+  "name": "cyberstalk-me",
+  "title": "赛博视奸设备状态展示网站",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sallyn",
+  "assignee": "Sallyn",
+  "createdAt": "2026-07-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-28-backend",
+    "07-28-web",
+    "07-28-client-windows",
+    "07-28-client-android"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

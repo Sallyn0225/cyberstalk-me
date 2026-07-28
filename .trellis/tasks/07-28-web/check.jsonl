@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查门禁：lint/type-check/build 全过，核对依赖引入政策"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "核对 contract.ts 与 shared/ Go struct 同步（本项目最易漂移点）"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "核对 useDeviceStream 的 SSE 生命周期、清理与重连行为"}
+{"file": ".trellis/tasks/07-28-web/prd.md", "reason": "本子任务验收标准清单（AC4/AC5/离线视觉区分）"}
+{"file": ".trellis/spec/guides/index.md", "reason": "交叉评审误报核验规则与验证纪律"}

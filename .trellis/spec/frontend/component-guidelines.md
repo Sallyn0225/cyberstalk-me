@@ -4,6 +4,24 @@
 
 ---
 
+## Component Sourcing (shadcn/ui first)
+
+- **Don't hand-write UI primitives.** Before writing any component, check
+  whether shadcn/ui provides it (`npx shadcn@latest add card badge tooltip
+  skeleton ...`). Hand-write only app-specific composition (DeviceCard,
+  DeviceGrid) on top of those primitives.
+- Generated primitives live in `src/components/ui/` and are owned code — small
+  tweaks are fine; needing a rewrite means the wrong primitive was chosen.
+- **Icons: `lucide-react` only.** Never hand-draw or inline SVG icons — pick
+  the closest lucide icon (`Monitor`, `Smartphone`, `BatteryCharging`, `Wifi`,
+  `MoonStar`, ...).
+- **Animation: Framer Motion** (`motion` package, `import { motion } from
+  "motion/react"`) for enter/exit, layout, and state-change animation. Don't
+  hand-write CSS keyframes. Trivial hover/focus transitions use Tailwind
+  `transition-*` utilities instead — no library needed there.
+
+---
+
 ## Component Structure
 
 - Function components only, defined with `function` declarations and a named
@@ -11,8 +29,10 @@
 
 ```tsx
 // components/DeviceCard.tsx
-import type { DeviceState } from "../types/contract";
-import { timeAgo } from "../lib/format";
+import type { DeviceState } from "@/types/contract";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/format";
 
 interface DeviceCardProps {
   device: DeviceState;
@@ -21,10 +41,10 @@ interface DeviceCardProps {
 export function DeviceCard({ device }: DeviceCardProps) {
   const offline = !device.online;
   return (
-    <article className={`device-card${offline ? " device-card--offline" : ""}`}>
-      <h2>{device.device_name}</h2>
+    <Card className={cn("p-4", offline && "opacity-60 grayscale")}>
+      <h2 className="text-lg font-semibold">{device.device_name}</h2>
       {/* ... */}
-    </article>
+    </Card>
   );
 }
 ```
@@ -51,22 +71,25 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
 ## Styling Patterns
 
-- **Plain CSS** with BEM-ish class names (`device-card`, `device-card--offline`),
-  in `src/styles/`. No Tailwind, no CSS-in-JS, no CSS modules — the app is one
-  page and plain CSS keeps the toolchain minimal.
-- State variants are modifier classes toggled from props (see example above),
-  not inline styles. Inline styles only for truly dynamic values (battery bar
-  width).
+- **Tailwind CSS** utilities (installed by `shadcn init`; v4 CSS-first config
+  lives in `src/index.css` together with the shadcn theme tokens).
+- Conditional variants via `cn()` from `src/lib/utils.ts` (see example above) —
+  not string concatenation, not inline styles.
+- Respect the shadcn CSS-variable theme: use its semantic classes
+  (`bg-card`, `text-muted-foreground`, ...) instead of hardcoding colors the
+  theme already names.
+- Inline styles only for truly dynamic values (battery bar width percentage).
 
 ---
 
 ## Accessibility
 
-- Card grid is semantic: `<main>` → `<article>` per device, device name in a
-  heading.
+- Keep the page semantic: a `<main>` wrapper, one card per device, device name
+  in a real heading (`<h2>`).
 - Online/offline must not be conveyed by color alone — pair the indicator with
   text ("在线" / "离线").
-- Icons get `aria-label` or accompanying visible text.
+- Decorative lucide icons get `aria-hidden`; icons that carry meaning on their
+  own get an `aria-label` or adjacent visible text.
 
 ---
 
@@ -76,3 +99,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
   centralized in one hook.
 - Formatting timestamps inline in JSX — use `lib/format.ts` helpers so
   "last seen" wording stays consistent across components.
+- Hand-rolling a badge/tooltip/skeleton that `npx shadcn add` already provides.
+- Inlining SVG paths instead of importing from `lucide-react`.
+- Heavily rewriting files in `components/ui/` — choose a better primitive
+  instead.

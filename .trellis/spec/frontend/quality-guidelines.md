@@ -30,15 +30,20 @@ npm run build       # vite build must succeed
   battery, not broken.
 - Offline devices remain visible with distinct styling (product requirement
   AC3) — never filter them out.
+- UI primitives come from shadcn/ui, icons from `lucide-react`, animation from
+  Framer Motion — hand-write none of these (see component-guidelines.md
+  "Component Sourcing").
 
 ---
 
 ## Forbidden Patterns
 
 - Adding runtime dependencies without recording the reason. Approved baseline:
-  `react`, `react-dom` only. Icon or time-formatting libraries need a note in
-  the task PRD. (No axios — use `fetch`; no moment/dayjs — `Intl` and a small
-  `timeAgo` helper cover the MVP.)
+  `react`, `react-dom`, the shadcn/ui stack (`tailwindcss`, Radix UI
+  primitives, `class-variance-authority`, `clsx`, `tailwind-merge`),
+  `lucide-react` for icons, and Framer Motion (`motion`) for animation.
+  Anything beyond that needs a note in the task PRD. (No axios — use `fetch`;
+  no moment/dayjs — `Intl` and a small `timeAgo` helper cover the MVP.)
 - `dangerouslySetInnerHTML` — all displayed strings come from device reports;
   even sanitized, they render as text only.
 - `useEffect` for derived computation — derive in render.
@@ -62,3 +67,5 @@ npm run build       # vite build must succeed
 - [ ] Contract mirror in sync with `shared/` Go structs
 - [ ] EventSource/interval cleanup present in every effect that creates one
 - [ ] Null branches rendered intentionally; offline state visually distinct
+- [ ] No hand-rolled UI primitive, inline SVG icon, or CSS keyframe animation
+      where shadcn/ui, lucide-react, or Framer Motion covers it

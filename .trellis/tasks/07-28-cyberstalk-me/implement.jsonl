@@ -1,0 +1,14 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端/Windows 客户端/shared 契约模块的规范总索引；含贯穿全项目的红线：脱敏即安全模型，原始窗口标题、设备 token、访客数据不得进入日志/存储/契约"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "monorepo 布局（go.work + shared/ + server/ + client-windows/）与包边界，阶段 0 骨架必须照此目录树创建"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite（modernc.org/sqlite）/database/sql 模式、devices 与 device_state 建表及 upsert 写法，阶段 1 后端存储层遵循"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Go 错误包装、sentinel 错误、API 错误响应形状，阶段 1 所有端点（report/snapshot/stream）统一遵循"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "log/slog 用法、日志级别与隐私规则：token、原始标题等敏感信息禁止入日志"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Go 侧工具门禁（build/vet/test）、禁用模式与测试要求，含 client-windows Win32 采集层的测试豁免说明"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "web/ 规范总索引；核心不变量：前端只读，src/types/contract.ts 必须与 shared/ Go struct 在同一任务内保持同步"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "web/src 扁平布局与命名约定，阶段 2 前端骨架照此创建"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "展示组件约定：shadcn/ui 优先不手写、Tailwind 样式、lucide-react 图标、Framer Motion 动效、a11y"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "useDeviceStream 的契约与 SSE 生命周期（含断线重连后重拉 snapshot），阶段 2 核心 hook 遵循"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "不引状态库，由单一 hook 拥有服务端状态的架构约定"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "types/contract.ts 镜像 Go struct 的规则与运行时解析守卫，契约同步的具体做法"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "web 侧 lint/type 门禁、依赖引入政策与测试要求，阶段 2 验证命令来源"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "契约字段贯穿 客户端→后端→SSE→前端 四层，新增/修改任何契约字段前先过此清单，防止漏改一层"}
