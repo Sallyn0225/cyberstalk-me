@@ -1,0 +1,9 @@
+.agents/
+.claude/
+.codex/
+.pi/
+
+.trellis/*
+!.trellis/spec/
+!.trellis/tasks/
+!.trellis/workspace/
