@@ -69,7 +69,7 @@
 - [x] **AC5** ✅ `uid=65532 gid=65532`；容器内无 `go`、无 `/src`；镜像 29.2 MB。
 - [x] **AC6** ✅ 正反都验：main 上 CI 三 job 全绿；三处人为缺陷分别让 `go`/`gofmt`、`web`/`typecheck`、`web`/`embedded frontend is up to date` 各自变红，无关 job 保持绿。
 - [x] **AC7** ✅ 包已公开，匿名可拉。amd64 原生拉取 `arch=amd64`；按 arm64 digest 拉取 `arch=arm64`，其二进制经 `file` 确认为 `ELF 64-bit ARM aarch64, statically linked, stripped`。tag 策略产出 `0.1.0` / `0.1` / `latest` / `sha-*`，与设计一致。
-- [ ] **AC8** ⚠️ **部分达成 —— 阻塞在仓库可见性**。README 部署章节的**命令序列**已在 VPS 上从干净检出端到端跑通（up → 页面可访问 → register-device → 上报 → 公网访客看到设备卡片），运维章节的看日志 / 升级 / 备份三组命令也逐条实测通过。**但第一条 `git clone` 对外人跑不通：仓库当前是 private**（`gh repo view` 确认 `visibility=PRIVATE`）。验证时用 `git archive` 导出 main 快照代替 clone。**仓库转公开后此项即自动成立，是否转公开由用户决定。**
+- [x] **AC8** ✅ 仓库已转 public 后**真正冷启动重跑一遍**：VPS 上本地无任何本项目镜像 → 匿名 `git clone` → `docker compose up -d` 自行从 GHCR 拉 `latest` → `healthy` → `GET /` 200 → `register-device` 打印 token（输出与 README 示例逐行一致）→ 用该配置上报 204 → 公网访客 `GET /api/v1/snapshot` 看到设备卡片。运维章节的看日志 / 升级 / 备份三组命令也逐条实测通过。全程只用 README 里的命令。
 - [x] **AC9** ✅ 三个既有服务全程状态与 uptime 未变；可用内存 3116 → 2986 Mi；8080 已释放；容器 / 卷 / 镜像 / builder / 工作目录零残留；**全程未执行任何 `prune`**。
 
 ## Out of Scope

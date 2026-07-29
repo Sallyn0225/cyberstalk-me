@@ -26,6 +26,7 @@ reason, update the spec in the same task.
 | [Error Handling](./error-handling.md) | Error wrapping, sentinels, API error shape | Filled |
 | [Quality Guidelines](./quality-guidelines.md) | Tooling gates, forbidden patterns, testing | Filled |
 | [Logging Guidelines](./logging-guidelines.md) | `log/slog` usage, levels, privacy rules | Filled |
+| [Deployment Guidelines](./deployment-guidelines.md) | Container image invariants, compose deployment, CI/CD gates | Filled |
 
 Cross-cutting rule worth repeating: **sanitization is the product's security
 model** — raw window titles, device tokens, and visitor data never enter logs,

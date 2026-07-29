@@ -229,9 +229,18 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 - 注意：`docker pull --platform linux/arm64` 在本地已有同 tag 镜像时**不会**重新拉取，
   inspect 仍显示旧架构。要验架构就按 digest 拉，别信 `--platform` 的表象
 
-**AC8** ⚠️ **部分达成**。README 命令序列本身全部实测通过，但第一条 `git clone` 对外人不可用 —— **仓库当前是 private**。
+**AC8** ✅ 分两轮达成。
 
-已跑通的部分（在 VPS 上用 `git archive` 导出的 main 干净快照，等价于 clone 出的工作区）：
+第一轮发现 README 第一条 `git clone` 对外人不可用（仓库当时是 private），用 `git archive` 导出的 main 快照顶替 clone，验证了其余全部命令。用户随后把仓库转为 public，**第二轮做了真正的冷启动重跑**：
+
+- 前置确认 VPS 上无任何本项目镜像（真冷启动，不是命中本地缓存）
+- 匿名 `git clone https://github.com/Sallyn0225/cyberstalk-me.git` 成功
+- `docker compose up -d` 自行从 GHCR 拉 `latest` → `healthy`
+- `GET /` 200；`register-device` 输出与 README 示例逐行一致；用该配置上报 204
+- `/api/v1/stream` 返回 `text/event-stream` 且带 `X-Accel-Buffering: no`
+- 公网访客视角 `GET /api/v1/snapshot` 看到设备卡片
+
+第一轮已验证的部分（下列内容两轮结论一致）：
 
 - `docker compose up -d` → 拉 GHCR `latest` → `healthy`
 - `docker compose exec app cyberstalk-server register-device win-desktop '我的台式机' windows --server-url ...`
@@ -246,14 +255,29 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 > **两处 VPS 环境限制，与交付物无关**：VPS 直连 GitHub 会 `GnuTLS recv error`，clone 需带
 > `https_proxy=http://127.0.0.1:7890`；buildkit 的代理问题见 design §9.1。外部部署者不会遇到。
 
-### 遗留：仓库可见性
+### 仓库可见性与历史脱敏（已处理）
 
-PRD 的目标是「让**任何人**在自己的服务器上执行两三条命令就能跑起这个网站」，父任务 `07-28-cyberstalk-me` 也写着「完全公开」。**镜像包已公开，但仓库本身还是 private**，于是 README 的第一条 `git clone` 外人跑不通。
+AC8 第一轮暴露出仓库还是 private，与 PRD「让**任何人**都能部署」及父任务「完全公开」的意图不符。用户选择转 public。
 
-两条出路，需用户定夺：
+转公开前先处理了一处我自己造成的问题：**验证记录里写进了 VPS 的公网 IP**，而 `.trellis/local/vps.md` 明确要求其内容不得复制进任何被跟踪的文件。处理方式：
 
-1. **把仓库转为 public** —— AC8 自动成立，与 PRD 意图一致。转之前需确认仓库里没有敏感内容（`.trellis/local/` 已被 `.gitignore` 覆盖，`client-windows/config*.yaml` 也已忽略，`.env` 同理）
-2. **仓库保持 private** —— 则 README 的部署章节要改写：不再让人 clone，而是让人手写一份最小 `compose.yaml`（只需 `image` + `ports` + `volumes`），因为镜像本身是公开的，部署并不真的需要仓库
+```bash
+printf '<该 IP>==><VPS-IP>\n' > /tmp/replacements.txt
+git filter-repo --replace-text /tmp/replacements.txt --force
+```
+
+- 三个受影响的可达 commit 已改写；那个「脱敏」commit 因替换后变成空提交被 filter-repo 自动剪掉
+- `filter-repo` 会移除 `origin` remote，需手动 `git remote add` 加回
+- tag `v0.1.0` 随之移到改写后的 commit 并 `--force` 重推 → **Release 重跑一次**，使镜像的
+  `org.opencontainers.image.revision` 标签指向真实存在的 commit
+- force push 前用 `--force-with-lease=refs/heads/main:<锚点 SHA>` 卡住，先核对远端确实在锚点上
+- **诚实的边界**：旧 commit 在 GitHub 上变为不可达，但短期内仍可用精确 SHA 访问，GitHub 稍后才回收。内容仅为一个 IP，判断可接受；要彻底清除需开 support ticket 强制 GC
+
+### CD 触发范围收窄
+
+纯文档提交（只改 `.trellis/` 或 `.md`）原本也会重建并推一个新的 `edge` 版本。已给 `release.yml` 的 push 触发加 `paths-ignore: ['.trellis/**', '**.md']`。
+
+**这条与 tag 发布不冲突** —— GitHub 文档明确：*"Path filters are not evaluated for pushes of tags."* 所以 `v*` 发布路径不受影响。CI 未加过滤（它是正确性门禁，多跑无害）。
 
 ---
 
