@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # Skips the rolling `edge` rebuild for commits that cannot change the
+    # image. Safe to combine with the tag trigger above: GitHub does not
+    # evaluate path filters for tag pushes, so a release is never filtered out.
+    paths-ignore:
+      - ".trellis/**"
+      - "**.md"
   workflow_dispatch:
 
 permissions:
