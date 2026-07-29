@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/prd.md", "reason": "验收基准：逐条核对 AC1–AC8，以及 Out of Scope（不得顺手加 K8s/TLS/Release 附件/重型 lint）"}
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/design.md", "reason": "核对实现是否守住关键设计：运行阶段零 RUN、GOWORK=off、CGO_ENABLED=0、非 root、healthcheck 打 snapshot、最小权限"}
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/implement.md", "reason": "核对每步验证命令是否真的跑过、四条红线是否被破坏（尤其是「不改后端业务代码」）"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "确认 CI 的 Go 门禁与项目既有质量标准一致"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "确认新增的部署文档/示例中不出现真实 token，compose 与 .env.example 不泄露敏感值"}

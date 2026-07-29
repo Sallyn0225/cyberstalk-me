@@ -22,6 +22,7 @@
     "07-28-backend",
     "07-28-web",
     "07-28-client-windows",
+    "07-30-deploy-docker-cicd",
     "07-28-client-android"
   ],
   "parent": null,
