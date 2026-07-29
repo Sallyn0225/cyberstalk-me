@@ -1,0 +1,38 @@
+# cyberstalk-me — single-container deployment.
+#
+#   docker compose up -d
+#
+# pulls the prebuilt image from GHCR; `docker compose build` builds the same
+# image locally instead. Copy .env.example to .env to change any of the
+# defaults below — without a .env file the defaults apply as-is.
+#
+# TLS / reverse proxying is deliberately left to the deployer; see the
+# "Reverse proxy" section of README.md (the SSE stream must not be buffered).
+
+services:
+  app:
+    image: ghcr.io/sallyn0225/cyberstalk-me:${IMAGE_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    ports:
+      # The container always listens on 8080; only the host side is tunable,
+      # so the health check and the port mapping cannot drift apart.
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      OFFLINE_THRESHOLD: ${OFFLINE_THRESHOLD:-60s}
+      SCAN_INTERVAL: ${SCAN_INTERVAL:-5s}
+    volumes:
+      # The SQLite database is the only persistent state. A named volume keeps
+      # it out of reach of host permission quirks and survives `down` + `up`.
+      - cyberstalk-data:/data
+    healthcheck:
+      # /api/v1/snapshot rather than / — it reads the store, so a green check
+      # means "serving and the database is readable", not just "files exist".
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/v1/snapshot"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  cyberstalk-data:
