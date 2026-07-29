@@ -60,15 +60,17 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：在干净环境执行 `docker compose up -d`，服务起来后浏览器打开 `http://<host>:8080` 能看到前端页面，`GET /api/v1/snapshot` 返回合法 JSON。
-- [ ] AC2：`docker compose exec` 跑 `register-device` 能成功注册设备并打印 token；用该 token 向 `/api/v1/report` 上报成功，页面出现对应设备卡片；缺失/错误 token 仍被拒绝。
-- [ ] AC3：`docker compose down && docker compose up -d` 之后，AC2 注册的设备与 token 依然有效（数据卷持久化生效）。
-- [ ] AC4：镜像可在 `linux/amd64` 与 `linux/arm64` 两种平台构建成功（`docker buildx build --platform linux/amd64,linux/arm64` 通过）。
-- [ ] AC5：容器内进程以非 root 用户运行（`docker compose exec app id` 非 0），且镜像内不含 Go 工具链与源码。
-- [ ] AC6：CI 工作流在当前 `main` 上全绿；人为制造一处 `gofmt` 违规、一处 TS 类型错误、一处未重建的前端产物，对应 job 分别失败。
-- [ ] AC7：打一个测试 tag 后，CD 成功把多架构镜像推到 GHCR，`docker pull ghcr.io/sallyn0225/cyberstalk-me:<tag>` 在 amd64 与 arm64 上都能拉到正确架构。
-- [ ] AC8：一个此前不了解该项目的人，只照着根 `README.md` 的部署章节操作，就能完成从零到网页可访问的全过程。
-- [ ] AC9：整个验证过程结束后，验证用 VPS 上那三个既有服务（`cliproxyapi` / `cpa-manager-plus` / `grok2api`）状态与开工前一致，未被重启、未丢镜像/卷、未被抢占端口或内存。
+> 验收执行于 2026-07-30。证据与命令见 `implement.md`「执行记录」。
+
+- [x] **AC1** ✅ 干净检出 `docker compose up -d` 后 healthy；`GET /` 200 返回内嵌 HTML，`/api/v1/snapshot` 返回合法 JSON；公网 `http://<VPS-IP>:8080/` 访客视角同样 200。
+- [x] **AC2** ✅ `docker compose exec app cyberstalk-server register-device` 注册成功并打印 token；该 token 上报 → 204 且设备出现在 snapshot；错误 token 与无 token 均 401。
+- [x] **AC3** ✅ `down` 再 `up` 后同一 token 上报仍 204，设备数据完整。
+- [x] **AC4** ✅ CD 一次通过（2m57s），`platforms: linux/amd64,linux/arm64`，**未使用 QEMU** —— 「运行阶段零 `RUN`」的推论成立。GHCR manifest index 同时含 amd64 与 arm64 条目。
+- [x] **AC5** ✅ `uid=65532 gid=65532`；容器内无 `go`、无 `/src`；镜像 29.2 MB。
+- [x] **AC6** ✅ 正反都验：main 上 CI 三 job 全绿；三处人为缺陷分别让 `go`/`gofmt`、`web`/`typecheck`、`web`/`embedded frontend is up to date` 各自变红，无关 job 保持绿。
+- [x] **AC7** ✅ 包已公开，匿名可拉。amd64 原生拉取 `arch=amd64`；按 arm64 digest 拉取 `arch=arm64`，其二进制经 `file` 确认为 `ELF 64-bit ARM aarch64, statically linked, stripped`。tag 策略产出 `0.1.0` / `0.1` / `latest` / `sha-*`，与设计一致。
+- [ ] **AC8** ⚠️ **部分达成 —— 阻塞在仓库可见性**。README 部署章节的**命令序列**已在 VPS 上从干净检出端到端跑通（up → 页面可访问 → register-device → 上报 → 公网访客看到设备卡片），运维章节的看日志 / 升级 / 备份三组命令也逐条实测通过。**但第一条 `git clone` 对外人跑不通：仓库当前是 private**（`gh repo view` 确认 `visibility=PRIVATE`）。验证时用 `git archive` 导出 main 快照代替 clone。**仓库转公开后此项即自动成立，是否转公开由用户决定。**
+- [x] **AC9** ✅ 三个既有服务全程状态与 uptime 未变；可用内存 3116 → 2986 Mi；8080 已释放；容器 / 卷 / 镜像 / builder / 工作目录零残留；**全程未执行任何 `prune`**。
 
 ## Out of Scope
 

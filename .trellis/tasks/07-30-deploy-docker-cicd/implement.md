@@ -208,11 +208,52 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 - **R2.2** ✅ VPS 本地 `docker buildx build` 成功产出可运行镜像
 - **AC9** ✅ 开工前 / 构建中 / 收工三次体检，`cli-proxy-api`·`cpa-manager-plus`·`grok2api` 状态与 uptime 均未变化；可用内存 3116→3075 Mi；8080 已释放；容器/卷/builder 无残留。全程未执行任何 `prune`
 
-### 未完成（阻塞在 PR 合入 main）
+### 合入 main 之后（PR #1 以 rebase 方式合入，commit `407231e` / `5acbf47` / `84df08c`）
 
-- **AC4** 多架构构建 —— 需 CD 跑一次
-- **AC7** GHCR 多架构镜像拉取 —— 需 CD 推送 + 手动把包设为 public
-- **AC8** 照 README 从零跑通 —— 需 GHCR 镜像可拉后，在 VPS 上全新 `git clone` 走一遍
+**AC4** ✅ CD 首跑 **2m57s 一次通过**，`platforms: linux/amd64,linux/arm64`，**工作流里没有 `setup-qemu-action`**。design §8.2 的假设（运行阶段零 `RUN` ⇒ 多架构无需模拟）**成立**。镜像名被 metadata-action 自动小写为 `ghcr.io/sallyn0225/cyberstalk-me`，design §4 担心的大写 owner 问题不存在。
+
+**标签策略** ✅ 与设计逐条对上：
+
+| 触发 | 实际产出 |
+|------|----------|
+| push `main` | `edge`、`sha-84df08c` |
+| tag `v0.1.0` | `0.1.0`、`0.1`、`latest`、`sha-84df08c` |
+
+**AC7** ✅ 用户已把 GHCR 包设为 public，匿名取 registry token 即可读 manifest。
+
+- manifest index（`application/vnd.oci.image.index.v1+json`）含 `linux/amd64` 与 `linux/arm64` 两个条目（另有两个 attestation manifest）
+- VPS（x86_64）原生 `docker pull ... :latest` → `arch=amd64`
+- 按 arm64 digest 精确拉取 → `arch=arm64`；把其中的二进制 copy 出来 `file` 得到
+  `ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped`
+  —— 同时旁证了 `CGO_ENABLED=0` 静态链接与 `-ldflags="-s -w"` 裁剪都生效
+- 注意：`docker pull --platform linux/arm64` 在本地已有同 tag 镜像时**不会**重新拉取，
+  inspect 仍显示旧架构。要验架构就按 digest 拉，别信 `--platform` 的表象
+
+**AC8** ⚠️ **部分达成**。README 命令序列本身全部实测通过，但第一条 `git clone` 对外人不可用 —— **仓库当前是 private**。
+
+已跑通的部分（在 VPS 上用 `git archive` 导出的 main 干净快照，等价于 clone 出的工作区）：
+
+- `docker compose up -d` → 拉 GHCR `latest` → `healthy`
+- `docker compose exec app cyberstalk-server register-device win-desktop '我的台式机' windows --server-url ...`
+  → 输出格式与 README 里写的示例**逐行一致**
+- 用打印出的 token 上报 → 204，设备出现在 snapshot
+- 公网访客视角 `http://<VPS-IP>:8080/` → 200，snapshot 含该设备
+- 运维章节：`docker compose logs`、`docker compose pull && up -d`、
+  备份三连（`stop` → `cp app:/data/cyberstalk.db` → `start`）逐条实测通过，备份文件 20480 字节，服务恢复正常
+
+**未在 VPS 上实测的一项**：`.env` 的 `HOST_PORT` 改端口路径。design §7.2 红线规定只用 8080，换端口会碰其他端口。插值逻辑已由本地 `docker compose config` 覆盖。
+
+> **两处 VPS 环境限制，与交付物无关**：VPS 直连 GitHub 会 `GnuTLS recv error`，clone 需带
+> `https_proxy=http://127.0.0.1:7890`；buildkit 的代理问题见 design §9.1。外部部署者不会遇到。
+
+### 遗留：仓库可见性
+
+PRD 的目标是「让**任何人**在自己的服务器上执行两三条命令就能跑起这个网站」，父任务 `07-28-cyberstalk-me` 也写着「完全公开」。**镜像包已公开，但仓库本身还是 private**，于是 README 的第一条 `git clone` 外人跑不通。
+
+两条出路，需用户定夺：
+
+1. **把仓库转为 public** —— AC8 自动成立，与 PRD 意图一致。转之前需确认仓库里没有敏感内容（`.trellis/local/` 已被 `.gitignore` 覆盖，`client-windows/config*.yaml` 也已忽略，`.env` 同理）
+2. **仓库保持 private** —— 则 README 的部署章节要改写：不再让人 clone，而是让人手写一份最小 `compose.yaml`（只需 `image` + `ports` + `volumes`），因为镜像本身是公开的，部署并不真的需要仓库
 
 ---
 
