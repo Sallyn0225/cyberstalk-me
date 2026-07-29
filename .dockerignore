@@ -1,0 +1,35 @@
+# The image is built from `shared/` and `server/` only. Everything else is
+# either tooling noise or already represented by the committed frontend build
+# output in server/cmd/server/web/.
+
+.git
+.github
+.gitattributes
+.trellis
+.agents
+.claude
+.codex
+.pi
+.playwright-mcp
+
+# Frontend sources do not participate in the image build — the Go binary
+# embeds the committed build output under server/cmd/server/web/.
+web
+client-windows
+
+# Local runtime data and build artifacts.
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.exe
+**/*.test
+
+# Deployment files that would only bloat the build context.
+Dockerfile
+.dockerignore
+compose.yaml
+compose.override.yaml
+.env
+.env.example
+README.md
+AGENTS.md

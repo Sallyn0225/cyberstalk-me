@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: go (gofmt / vet / test / build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: |
+            server/go.sum
+            go.work.sum
+
+      # go.work makes a bare `./...` from the repo root fail, so every command
+      # below names its modules explicitly.
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l shared server client-windows)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt found unformatted files (run: gofmt -w <file>)"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: vet (server + shared)
+        run: go vet ./server/... ./shared/...
+
+      - name: test (server + shared)
+        run: go test ./server/... ./shared/...
+
+      - name: build server (static linux binary, as shipped in the image)
+        run: CGO_ENABLED=0 GOOS=linux go build ./server/... ./shared/...
+
+      # client-windows is Windows-only by build constraint: under GOOS=linux
+      # every file is excluded and the build fails with "build constraints
+      # exclude all Go files". Cross-compiling it keeps the module honest.
+      - name: vet + build client-windows (GOOS=windows)
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go vet ./client-windows/...
+          go build ./client-windows/...
+
+  web:
+    name: web (lint / typecheck / test / build / embed freshness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: npm ci
+        working-directory: web
+        run: npm ci
+
+      - name: lint
+        working-directory: web
+        run: npm run lint
+
+      - name: typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: test
+        working-directory: web
+        run: npx vitest run
+
+      # vite writes straight into server/cmd/server/web/, the directory the Go
+      # binary embeds. Building here and diffing catches the one failure mode
+      # this layout has: frontend source changed, build output not rebuilt, so
+      # the shipped binary silently serves the previous UI.
+      - name: build
+        working-directory: web
+        run: npm run build
+
+      - name: embedded frontend is up to date
+        run: |
+          git add --intent-to-add -- server/cmd/server/web
+          if ! git diff --exit-code -- server/cmd/server/web; then
+            echo "::error::server/cmd/server/web is stale. Run 'npm run build' in web/ and commit the output alongside your frontend change."
+            exit 1
+          fi
+
+  docker:
+    name: docker (image builds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Single architecture and no push: this gate answers "is the Dockerfile
+      # still valid?" quickly. Multi-arch publishing lives in release.yml.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

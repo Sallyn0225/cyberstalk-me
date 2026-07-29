@@ -10,6 +10,13 @@ skills-lock.json
 !.trellis/tasks/
 !.trellis/workspace/
 
+# Deployment-local files. .env holds a real deployment's settings and
+# compose.override.yaml holds machine-specific limits; only the .example /
+# base files are tracked.
+.env
+compose.override.yaml
+compose.override.yml
+
 # Go build artifacts & runtime data
 *.exe
 *.test
