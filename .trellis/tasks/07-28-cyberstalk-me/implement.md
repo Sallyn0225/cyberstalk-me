@@ -17,11 +17,11 @@
 - [ ] 静态资源托管 web 构建产物（`embed.FS`）。
 - 验证：`curl` 带/不带 token 各测一次（AC6）；两个模拟 report 后 snapshot 正确；停止上报后阈值内变离线（AC3）。
 
-## 阶段 2 · 前端（R3）
-- [ ] React+Vite 项目 + shadcn/ui 初始化（Tailwind、lucide-react、Framer Motion，组件不手写）；`useDeviceStream` hook（snapshot + SSE 合并）。
-- [ ] 设备卡片组件：活动、在线灯、活跃/空闲、电量、网络、最后活跃时间；离线置灰。
-- [ ] 构建产物接入后端静态托管。
-- 验证：无痕浏览器直开 URL 看到卡片（AC4）；模拟状态变化页面自动更新（AC5）。
+## 阶段 2 · 前端（R3）— **已完成**（子任务 `07-28-web`，2026-07-29）
+- [x] React+Vite 项目 + shadcn/ui 初始化（Tailwind、lucide-react、Framer Motion，组件不手写）；`useDeviceStream` hook（snapshot + SSE 合并）。
+- [x] 设备卡片组件：活动、在线灯、活跃/空闲、电量、网络、最后活跃时间；离线置灰。
+- [x] 构建产物接入后端静态托管（`vite build` 直接输出到 `server/cmd/server/web/`，产物入库）。
+- 验证：无痕浏览器直开 URL 看到卡片（AC4）；模拟状态变化页面自动更新（AC5）。**均已实测通过。**
 
 ## 阶段 3 · Windows 客户端（R1.1/R1.3/R1.4，Go）
 - [ ] Go + Win32 采集：前台窗口+进程名、空闲、电量、网络。

@@ -19,14 +19,19 @@ update it if reality diverges.
 
 ```
 web/
-├── index.html
-├── components.json          # shadcn/ui config (style, aliases)
-├── vite.config.ts           # @tailwindcss/vite plugin, "@" alias, dev proxy: /api -> server
-├── tsconfig.json            # strict: true; paths: "@/*" -> "./src/*"
+├── index.html               # lang="zh-CN" class="dark" (dark-only site)
+├── components.json          # shadcn/ui config (style radix-nova, aliases)
+├── .oxlintrc.json           # linter config; exhaustive-deps raised to error
+├── vite.config.ts           # @tailwindcss/vite, "@" alias, dev proxy /api -> :8080,
+│                            #   build.outDir -> ../server/cmd/server/web, vitest config
+├── tsconfig.json            # solution file; paths: "@/*" -> "./src/*"
+├── tsconfig.app.json        # strict: true lives here (covers src/)
+├── public/
+│   └── favicon.svg
 └── src/
     ├── main.tsx             # ReactDOM entry
-    ├── App.tsx              # page shell: header + DeviceGrid
-    ├── index.css            # Tailwind v4 entry + shadcn theme tokens (CSS variables)
+    ├── App.tsx              # page shell: header + DeviceGrid (named export)
+    ├── index.css            # Tailwind v4 entry + font + shadcn theme tokens
     ├── components/
     │   ├── ui/              # shadcn/ui generated primitives (card.tsx, badge.tsx, ...)
     │   ├── DeviceGrid.tsx   # app components stay flat, one per file, PascalCase
@@ -35,11 +40,16 @@ web/
     ├── hooks/               # custom hooks, camelCase use*.ts
     │   └── useDeviceStream.ts
     ├── types/
-    │   └── contract.ts      # TS mirror of shared/ Go structs — single source
+    │   ├── contract.ts      # TS mirror of shared/ Go structs — single source
+    │   └── contract.test.ts # tests sit next to the code they cover
     └── lib/                 # pure helpers, no React imports
         ├── utils.ts         # cn() — created by shadcn init
-        └── format.ts        # formatting / time-ago
+        ├── format.ts        # formatting / time-ago
+        └── format.test.ts
 ```
+
+There is no `web/dist/`: `vite build` writes into `server/cmd/server/web/`, the
+directory the Go binary embeds (see quality-guidelines.md).
 
 ---
 

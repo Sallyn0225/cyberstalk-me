@@ -7,15 +7,34 @@
 ## Tooling (must pass before any commit)
 
 ```bash
-npm run lint        # ESLint flat config: @eslint/js + typescript-eslint + react-hooks
-npx tsc --noEmit    # type-check (Vite dev server does not type-check)
-npm run build       # vite build must succeed
+npm run lint        # oxlint (react + typescript + oxc + jsx-a11y plugins)
+npm run typecheck   # tsc -b (Vite dev server does not type-check)
+npx vitest run      # unit tests for pure logic
+npm run build       # tsc -b && vite build
 ```
 
-- ESLint with the standard Vite React-TS template setup (`typescript-eslint`
-  recommended + `eslint-plugin-react-hooks`). The `react-hooks/exhaustive-deps`
-  rule is an error, not a warning — silence it only with a written reason.
+- **Linter is oxlint**, not ESLint — that is what `npm create vite` scaffolds
+  now, and it implements the React hooks rules this project cares about.
+  `.oxlintrc.json` raises `react/exhaustive-deps` from its default warning to
+  **error** (rule output is labelled `react-hooks(exhaustive-deps)`); silence it
+  only with a written reason. `react/only-export-components` is disabled via an
+  `overrides` entry for `src/components/ui/**`, because shadcn-generated files
+  legitimately export variant objects alongside components.
 - Formatting: Prettier defaults, run via editor; no custom config debates.
+
+---
+
+## Build output is part of the commit
+
+`vite build` writes straight into `server/cmd/server/web/`, the directory the
+Go server embeds (`//go:embed all:web`). That keeps deployment to "copy one
+binary", at the price of one rule:
+
+> **Any frontend change must be `npm run build`-ed and committed together with
+> its build output.** Otherwise the binary silently serves the previous UI.
+
+`emptyOutDir: true` is mandatory in `vite.config.ts` because the output
+directory lives outside the Vite root.
 
 ---
 
@@ -39,11 +58,14 @@ npm run build       # vite build must succeed
 ## Forbidden Patterns
 
 - Adding runtime dependencies without recording the reason. Approved baseline:
-  `react`, `react-dom`, the shadcn/ui stack (`tailwindcss`, Radix UI
-  primitives, `class-variance-authority`, `clsx`, `tailwind-merge`),
-  `lucide-react` for icons, and Framer Motion (`motion`) for animation.
-  Anything beyond that needs a note in the task PRD. (No axios — use `fetch`;
-  no moment/dayjs — `Intl` and a small `timeAgo` helper cover the MVP.)
+  `react`, `react-dom`, the shadcn/ui stack (`tailwindcss`, `@tailwindcss/vite`,
+  `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-merge`,
+  `tw-animate-css`), `lucide-react` for icons, Framer Motion (`motion`) for
+  animation, and `@fontsource-variable/plus-jakarta-sans` — the theme's font,
+  self-hosted so the public site makes no third-party request and the embedded
+  binary works offline. Anything beyond that needs a note in the task PRD.
+  (No axios — use `fetch`; no moment/dayjs — `Intl` and a small `timeAgo`
+  helper cover the MVP.)
 - `dangerouslySetInnerHTML` — all displayed strings come from device reports;
   even sanitized, they render as text only.
 - `useEffect` for derived computation — derive in render.
@@ -62,7 +84,9 @@ npm run build       # vite build must succeed
 
 ## Code Review Checklist
 
-- [ ] `tsc --noEmit`, `npm run lint`, `npm run build` all clean
+- [ ] `npm run lint`, `npm run typecheck`, `npx vitest run`, `npm run build`
+      all clean
+- [ ] Build output under `server/cmd/server/web/` regenerated and staged
 - [ ] No new dependency without a recorded reason
 - [ ] Contract mirror in sync with `shared/` Go structs
 - [ ] EventSource/interval cleanup present in every effect that creates one

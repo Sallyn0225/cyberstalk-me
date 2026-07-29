@@ -2,6 +2,8 @@
 .claude/
 .codex/
 .pi/
+skills-lock.json
+.playwright-mcp/
 
 .trellis/*
 !.trellis/spec/

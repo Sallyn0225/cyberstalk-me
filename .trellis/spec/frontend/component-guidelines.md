@@ -18,7 +18,14 @@
 - **Animation: Framer Motion** (`motion` package, `import { motion } from
   "motion/react"`) for enter/exit, layout, and state-change animation. Don't
   hand-write CSS keyframes. Trivial hover/focus transitions use Tailwind
-  `transition-*` utilities instead — no library needed there.
+  `transition-*` utilities instead — no library needed there. Tailwind's own
+  built-ins (`animate-pulse`) count as utilities, not hand-written keyframes.
+- **Theme tokens are generated, not authored.** The palette in `src/index.css`
+  comes from a tweakcn theme applied with
+  `npx shadcn@latest add <theme-registry-url>`; swapping themes means re-running
+  that command, never hand-editing colour values.
+- Card composition note: in this shadcn version `CardTitle` renders a `div`.
+  Put the real `<h2>` *inside* it so the page keeps its heading structure.
 
 ---
 

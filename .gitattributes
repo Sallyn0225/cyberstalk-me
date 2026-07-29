@@ -7,3 +7,9 @@
 # picking either side (task state lives in task.json, not index.md). See
 # .trellis/spec/cli/backend/directory-structure.md for details.
 .trellis/workspace/*/journal-*.md merge=union
+
+# Vite build output embedded into the Go binary. It is generated, never
+# hand-edited: keep line endings byte-identical to what `vite build` writes
+# so a fresh build never shows up as a spurious diff, and keep it out of
+# language stats / review diffs.
+server/cmd/server/web/assets/** -text linguist-generated

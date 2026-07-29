@@ -65,3 +65,30 @@
 - panic：`store_test` 的 jsonMarshal2 panic → 合并的 `jsonMarshal(t,p)` 用 `t.Fatal`（spec：main.go 外无 panic）。
 
 全门禁绿：gofmt / vet / build / test / `-race` / `CGO_ENABLED=0 GOOS=linux` build。已 commit。
+
+---
+
+## 2026-07-29 · web 子任务（前端展示网站）
+
+**规划**：`07-28-web` 原本只有 prd + 两个 jsonl，补齐 `design.md` / `implement.md` 后 `task.py start`。design 里把后端**实测行为**钉死（不是照抄设计稿）：snapshot 返回**裸数组**非包装对象；SSE 首帧是**命名事件** `event: ready`（不进 `onmessage`，所以连接就绪只能靠 `onopen`）。
+
+**用户决策**：构建产物落地方式选「vite build 直接输出到 `server/cmd/server/web/` 并把产物提交进 git」——任何 commit 上 `go build` 都能出带最新前端的单二进制，代价是前端改动必须连产物一起提交。主题用户从 tweakcn 挑的（mint/emerald + 纯黑深色）。
+
+**契约漂移（重要）**：spec `type-safety.md` 的示例与真实 Go 契约不符 2 处，以 Go 为准并已改 spec——`activity` 是 Go 值类型**永不为 null**（示例写成了 `Activity | null`）；`Battery.Level` 是 `*int` **可为 null**（示例写成 `number`）。另定规矩：解析守卫只校验结构、**不校验字符串联合取值**（后端对 `network` 根本没做校验），未知取值降级展示而不是丢设备。
+
+**工具链现实（与 spec 原文不符，已同步 spec）**：
+- create-vite 9.1.1 现在生成 **oxlint 不是 ESLint**。实测 oxlint 已实现 `react-hooks(exhaustive-deps)`（默认 warn），保留 oxlint 并提为 error + 开 jsx-a11y；`components/ui/**` 用 overrides 关 `only-export-components`。
+- **TS 6 弃用 `baseUrl`**（直接 TS5101 报错），只留 `paths`；且新模板**不再默认开 `strict`**，需手动加进 `tsconfig.app.json`。
+- Vite dev server 默认只绑 `[::1]`，本机 IPv6 回环连不通 → 显式 `server.host='127.0.0.1'`。
+- 字体：tweakcn 主题要 Plus Jakarta Sans，改 `@fontsource-variable/*` 自托管（公网站点不依赖 Google Fonts，国内可访问 + 单二进制离线可用），卸载 preset 带的未用 Geist。
+
+**亲验结果**（起真后端 + 两台模拟设备 curl 上报 + Playwright 实开页面）：
+- AC4 无认证直开见卡片；AC5 改 activity 页面不刷新自动更新（VS Code→Chrome 实截图确认）。
+- AC3 停止上报超阈值 → 卡片置灰 + 文字「离线」+「最后活跃 X 前」。
+- **重连校正实测**：杀后端 → 页面进「重连中」→ 重启后端并在断线期间补一次上报 → 前端重连后拿到断线期间的状态。网络面板确认重连后**多打了一次 `/api/v1/snapshot`**，证明是 snapshot 校正而非 SSE 补发。
+- `battery: null` 台式机整块不渲染；`battery.level: null` 只显示充电态。控制台除故意杀服务器期间的网络重试外无任何应用级报错。
+- E.6：跑 `go build` 出的二进制访问 `:8080`，页面就是新前端（embed 生效）。
+
+**坑**：Windows 下 `curl -d '中文'` 会被控制台代码页转码搞坏（后端收到乱码），必须 `--data-binary @file`。已写进 `web/README.md`。
+
+**遗留观察**：后端 SSE 无心跳帧。前端能优雅处理（重连+校正），但线上反代若有 idle read timeout 会规律性重连；要根治属后端加 keepalive 注释帧，不在本子任务范围。
