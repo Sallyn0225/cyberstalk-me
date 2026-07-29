@@ -121,3 +121,31 @@
 **遗留（交互项，待真机桌面）**：F.1 切到 VS Code/Chrome/微信看卡片变对应应用名（逻辑已由 mapping_test 覆盖，数据通路已验证）；F.4 静置 5min 看空闲标记（`TestResolveIdle` 覆盖阈值边界）；F.5 拔网线/切 wifi 看网络字段变化（network 采集已验证 wifi）。
 
 **注意（操作）**：git bash 的 `$!` 是 MSYS PID，`taskkill //PID` 找不到；按映像名 `taskkill //IM agent.exe //F` 才可靠。Windows 控制台代码页会搞坏中文（python 打印 DB 内容乱码，但 curl snapshot 正常 UTF-8；校验用字节匹配）。
+
+---
+
+## 2026-07-29 · client-windows 新环境重装工具链 + 门禁复验 + e2e 复跑
+
+**背景**：本会话开始时本机**无任何 Go/gcc 工具链**（环境重置，上次 journal 记的 `D:\go`、`D:\mingw` 均已不存在）。用户授权装 D 盘、推荐 `D:\Program Files`。任务代码此前已完成，目标是重建环境、复验全门禁、复跑 e2e 非交互项。
+
+**Go 安装**：`go1.26.5.windows-amd64.zip`（go.dev/dl，74MB）→ 7-Zip 解压 → `D:\Program Files\Go`。用户级环境变量 `GOROOT=D:\Program Files\Go`、`GOPATH=D:\gopath`、`GOPROXY=https://goproxy.cn,direct`（国内拉 modernc/x-sys 依赖必须，默认 proxy.golang.org 太慢），PATH 幂等追加 `Go\bin` + `gopath\bin`。**Go 本身能处理带空格的安装路径**。
+- git bash 当前会话 PATH 用 **POSIX 形式** `/d/Program Files/Go/bin`（`D:/...` 混合路径 git bash 的 PATH 查找不认，但直接全路径执行 `.exe` 可以）。
+
+**mingw（-race 需要 cgo）**：WinLibs GCC 16.1.0 UCRT POSIX+SEH r3（github brechtsanders/winlibs_mingw，109MB 7z）。
+- **关键坑**：初装到 `D:\Program Files\mingw64`，`go test -race` 链接失败——`ld.exe: cannot find D:/Program: No such file or directory`。**mingw 的 ld 无法处理带空格的安装路径**（default-manifest.o 等库搜索路径按空格被拆断）。移到无空格的 `D:\mingw64` 后 race 全过。**结论：Go 可装带空格路径，mingw 必须无空格路径。**
+
+**行尾根治（gofmt 门禁阻塞）**：本机 `core.autocrlf=true`，新 checkout 把所有 `.go` 转成 CRLF，`gofmt -l` 因此把**每个文件**都标为需格式化（仓库 blob 其实是 LF，`git ls-files --eol` 证实 `i/lf w/crlf`）。这是标准 Windows git 配置下的通病，非代码问题。
+- 修复：`.gitattributes` 顶部加 `* text=auto eol=lf`（通用规则放最前，下方已有的 `web/assets/** -text` 特例因"后者覆盖前者"仍生效）。再 `git config core.autocrlf false`（仅本仓库）+ `git ls-files -z | xargs -0 rm -f && git checkout-index -f -a` 重刷工作区为 LF。
+- **副作用与消解**：rm+checkout 改了所有文件 mtime → `git status` 一度把上百文件标 ` M`，但 `git diff --numstat`/`git diff HEAD --stat` 证明**唯一真实内容变更只有 `.gitattributes`（+8 行）**，其余是 stat 缓存脏。`git add -u`（不碰未追踪的 `00-join-sallyn/`）写回 stat 后 status 干净。
+- **唯一改动的追踪文件：`.gitattributes`。** 这是让 gofmt 门禁跨平台/跨 autocrlf 稳定的基础设施修复。
+
+**代码门禁全绿**（本机实测）：`gofmt -l` 无输出 / `go vet` 三 module / `go test` 全 ok / `CGO_ENABLED=1 go test -race ./client-windows/...`（config/mapping/report 全过 race 干净）/ `CGO_ENABLED=0 go build` 三 module / `CGO_ENABLED=0 GOOS=linux go build`（server+shared）。
+
+**e2e 非交互项复跑**（临时 `D:\tmp-godl\e2e`，测试 token，跑完已连同 db/config 一并删除）：
+- 这台机器**有电池**（`battery.level=93 charging=true`），与上次那台台式机（battery=null）不同——契约两种都正确渲染。`network=wifi`，`reported_at` 带 Z（UTC）。
+- **F.2 隐私红线四处全过**：`-dry-run` payload、`-v` 日志、`/api/v1/snapshot`、DB `last_report_json`（python 查 activity 键只有 `app/description/idle/idle_seconds`）均无 title 字段、无 token。前台是终端（未命中规则）→ `某个应用 · 使用中`（F.3：不暴露 exe 名）。
+- **F.6 韧性**：杀 server → 不崩、退避 `3s→6s→12s→24s→48s`（interval 起指数 ×2，err 只含 URL 无 token）→ 重启 server → 退避到期自动续报 `report accepted`、snapshot `online:true`、退避复位回 3s。
+- **F.7 坏 token**：401 → `permanent report error: ... server status 401` → 退避直跳 `2m0s`、仅 1 条 WARN（不刷屏）、不崩、无 token。
+- **F.8 单 exe**：agent.exe + config.yaml 拷到异目录，从任意 CWD 不带 `-config` 跑 → 正确解析 exe 同目录 config（`os.Executable()` 同目录，非 CWD）。
+
+**遗留（交互项，仍待真机桌面人工确认）**：F.1 切前台 app 看卡片跟随、F.4 静置 5min 看空闲标记、F.5 拔网线/切 wifi 看网络字段——逻辑均有单测覆盖（mapping 规则命中、idle 阈值边界、network wifi 采集），数据通路本会话已端到端验证。未 commit（`.gitattributes` 改动待用户决定是否随任务一起提交）。

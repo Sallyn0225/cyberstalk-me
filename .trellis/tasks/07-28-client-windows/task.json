@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-28-cyberstalk-me",
   "relatedFiles": [],
-  "notes": "代码完成（report 包 + main 装配 + README + spec 同步 + go.mod 修正），全门禁绿，真机 e2e 非交互项已验证（隐私 canary 四处 / 韧性 / 坏 token / 单 exe 异目录）。交互项 F.1/F.4/F.5（前台切 app、5min 空闲、拔网线）待真机桌面确认。详见 journal 2026-07-29。",
+  "notes": "代码完成。2026-07-29 新环境重装工具链（Go 1.26.5→D:\\Program Files\\Go；mingw GCC 16.1.0→D:\\mingw64，因 ld 不支持空格路径必须无空格）后全门禁复绿：gofmt/vet/test/race/build/GOOS=linux build。行尾根治：.gitattributes 加 `* text=auto eol=lf`（本机 autocrlf=true 使 gofmt 误报全部文件），唯一追踪文件改动。e2e 非交互项复验通过（隐私红线四处 / F.3 通用描述 / F.6 韧性退避+续报 / F.7 坏 token / F.8 单 exe 异目录）。交互项 F.1/F.4/F.5（前台切 app、5min 空闲、拔网线/切 wifi）待真机桌面人工确认。未 commit。详见 journal 2026-07-29 第二条。",
   "meta": {}
 }

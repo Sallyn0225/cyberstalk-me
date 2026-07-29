@@ -1,3 +1,11 @@
+# Normalize line endings: every text file is stored and checked out with LF
+# regardless of the developer's platform or core.autocrlf setting. Without this,
+# a Windows checkout (autocrlf=true) rewrites Go sources to CRLF and `gofmt -l`
+# flags every file, breaking the format gate even though the repo blobs are LF.
+# Binary files are auto-detected; the more specific -text rules below still win
+# because later gitattributes patterns override earlier ones.
+* text=auto eol=lf
+
 # Trellis: append-only developer journals should merge cleanly across
 # parallel sessions/worktrees — each session only appends a new block, so
 # there is nothing to actually conflict on.
