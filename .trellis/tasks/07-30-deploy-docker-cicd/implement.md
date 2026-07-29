@@ -18,8 +18,8 @@ VPS 已确认：Ubuntu 22.04.5 / x86_64、Docker 29.2.1 + Compose v5.0.2 + build
 
 剩余待办：
 
-- [ ] `docker manifest inspect golang:1.26-alpine` 确认基础镜像标签存在（只查 registry manifest，不拉镜像、不占资源；不存在则按 design §8.1 退化并回写 design.md）
-- [ ] 确认云厂商安全组是否放行 8080（外网访问不通时先查这里，别误判成程序问题）
+- [x] 基础镜像标签确认存在（查 Docker Hub tags API：`1.26-alpine` / `1.26.5-alpine` 均在）→ design §8.1 ✅
+- [x] 安全组已放行 8080（本机 `curl http://<VPS-IP>:8080/` 返回 200）✅
 
 **回滚点 A**：此步只读，无改动。
 
@@ -170,6 +170,51 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 - [ ] 更新父任务 `07-28-cyberstalk-me` 的相关记录（部署方式已变为 compose）
 - [ ] `.trellis/spec/backend/` 视情况补一条部署/构建约定（如「运行阶段零 RUN」「前端产物必须提交」）
 - [ ] 走 Trellis 3.3 / 3.4：spec 更新 + 提交
+
+---
+
+## 执行记录（2026-07-30）
+
+### 已完成
+
+| Step | 结果 |
+|------|------|
+| 0 | 两项遗留探测均已确认，见上 |
+| 1 | `Dockerfile` + `.dockerignore` + `.gitignore` 追加 `.env` / `compose.override.yaml`。`docker build --check`（远端 BuildKit lint）**零告警** |
+| 2 | `compose.yaml` + `.env.example`。`docker compose config` 插值与 schema 校验通过 |
+| 3 | `.github/workflows/ci.yml`。本地预演 Go 门禁全过、前端 lint/typecheck/22 个用例/build 全过。**Vite 连跑两次产物 diff 为空 → R3.4 保持硬失败**（design §8.3 结论）。PR #1 上 CI 三 job 全绿 |
+| 4 | `.github/workflows/release.yml` 已写。**未触发** —— 等 PR 合入 main |
+| 5 | VPS 运行时验证完成，见下 |
+| 6 | 根 `README.md` 已写 |
+
+### AC6 反向验证（三轮，临时分支验完即删）
+
+| 注入的缺陷 | 预期失败的 job / step | 实际 |
+|-----------|---------------------|------|
+| `server/internal/config/tmp_badfmt.go` 格式违规 | `go` / `gofmt` | ✅ 红在 `gofmt`，报错含 `run: gofmt -w <file>`；`web` `docker` 不受影响 |
+| 改 `web/src/App.tsx` 文案但不 `npm run build` | `web` / `embedded frontend is up to date` | ✅ lint·typecheck·test·build 全过后红在新鲜度检查，报错含「Run 'npm run build' in web/ and commit the output」 |
+| `web/src/App.tsx` 加一处 `const x: number = "str"` | `web` / `typecheck` | ✅ lint 过、红在 `typecheck`（TS2322）；`go` `docker` 仍绿 |
+
+> 第二轮首次用 `sed` 插入时误匹配多行，oxlint 先在重复声明上挂了，没隔离出 `typecheck`。已重做一轮干净的单处注入，上表是重做后的结果。
+
+### VPS 运行时验证结果
+
+顺序与 implement.md 原定的相反：GHCR 尚无镜像可拉，因此先跑 Step 5.2（唯一一次 VPS 构建）产出本地镜像，再用它跑 5.1 的运行时链路。构建全程可用内存未低于 3.0 Gi，远高于 1.5 Gi 门槛。
+
+- **AC1** ✅ `GET /` 200 且返回内嵌 HTML；`/api/v1/snapshot` 返回合法 JSON；`/api/v1/stream` 是 `text/event-stream` 且带 `X-Accel-Buffering: no`；compose healthcheck 报 `healthy`
+- **AC2** ✅ `compose exec app cyberstalk-server register-device` 注册成功并打印 token（写入的正是 `/data` 卷里的库）；该 token 上报 → 204，设备出现在 snapshot；错误 token 与无 token 均 401
+- **AC3** ✅ `down` 再 `up` 后同一 token 上报仍 204
+- **AC5** ✅ `uid=65532 gid=65532`；容器内无 `go`、无 `/src`；镜像 **29.2 MB**
+- **R2.2** ✅ VPS 本地 `docker buildx build` 成功产出可运行镜像
+- **AC9** ✅ 开工前 / 构建中 / 收工三次体检，`cli-proxy-api`·`cpa-manager-plus`·`grok2api` 状态与 uptime 均未变化；可用内存 3116→3075 Mi；8080 已释放；容器/卷/builder 无残留。全程未执行任何 `prune`
+
+### 未完成（阻塞在 PR 合入 main）
+
+- **AC4** 多架构构建 —— 需 CD 跑一次
+- **AC7** GHCR 多架构镜像拉取 —— 需 CD 推送 + 手动把包设为 public
+- **AC8** 照 README 从零跑通 —— 需 GHCR 镜像可拉后，在 VPS 上全新 `git clone` 走一遍
+
+---
 
 ## 全程红线
 
