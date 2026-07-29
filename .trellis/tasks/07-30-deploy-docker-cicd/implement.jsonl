@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/prd.md", "reason": "本任务需求 R1–R5 与验收标准 AC1–AC8，含已确认的关键决策（GHCR / 单容器 / 多架构 / CI 精简）"}
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/design.md", "reason": "Dockerfile 两阶段结构、compose 形状、CI/CD 工作流设计与四条待验证假设，实现必须照此，偏离要回写"}
+{"file": ".trellis/tasks/07-30-deploy-docker-cicd/implement.md", "reason": "Step 0–6 执行顺序、每步验证命令、回滚点与四条全程红线"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/prd.md", "reason": "父任务背景与部署约束（低成本 VPS、完全公开、单二进制交付），说明为何要 compose 一键部署"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/design.md", "reason": "反向代理与 SSE 缓冲约定、env 配置项来源，README 反代章节据此编写"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Go 侧工具门禁（build/vet/test/gofmt），CI go job 的检查项必须与之一致而非另起一套"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "go.work + shared/ + server/ + client-windows/ 的模块布局，决定 Docker 构建上下文与 CI 逐模块执行方式"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端 lint/typecheck/build 命令与门禁，CI web job 据此编排"}
