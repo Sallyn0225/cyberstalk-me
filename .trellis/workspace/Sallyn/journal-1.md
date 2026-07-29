@@ -92,3 +92,32 @@
 **坑**：Windows 下 `curl -d '中文'` 会被控制台代码页转码搞坏（后端收到乱码），必须 `--data-binary @file`。已写进 `web/README.md`。
 
 **遗留观察**：后端 SSE 无心跳帧。前端能优雅处理（重连+校正），但线上反代若有 idle read timeout 会规律性重连；要根治属后端加 keepalive 注释帧，不在本子任务范围。
+
+---
+
+## 2026-07-29 · client-windows 子任务实现（report + main 装配）
+
+**任务**：`07-28-client-windows`（Windows 上报客户端）。父任务 `07-28-cyberstalk-me`。本会话接续已完成的阶段 A（config）/B（mapping）/C（collect），补齐缺失的阶段 D（report）+ E（main 装配 / README / spec 同步）。
+
+**模型插曲**：派发的 trellis-implement 子代理因 `claude-opus-5[1m]` 不可用而失败（无产出），改为本会话直接实现。
+
+**实现**：
+- `internal/report/client.go`：`Client` + `Send`——204=成功、400/401=`ErrPermanent`、5xx/网络/超时=可重试；token 只在 Authorization 头，错误信息只含状态码/URL，无 token。
+- `internal/report/loop.go`：`Loop.Run`——首次立即上报；失败退避 interval→2×→4×→…→cap 2min，成功复位 interval，永久错误直跳 cap；失败轮丢弃不补发；ctx 可打断退避。`Next` 回调由 main 装配 collect+mapping，**report 包只收 `shared.ReportPayload`，不 import collect/mapping/config，全平台可测**。
+- `cmd/agent/main.go`：替换占位——flag（`-config`/`-dry-run`/`-v`）+ slog Text→stdout + `signal.NotifyContext` 优雅退出；dry-run 只打脱敏 payload JSON（启动日志移到 dry-run 分支之后，保证 stdout 纯 JSON 可 pipe）；启动 Info（server_url/interval/规则数/expose_title 数）+ 非空 expose_title Warn。
+- `README.md`（E.4）、spec 同步（E.5：directory-structure 补 `internal/config` + client-windows 包隔离说明；quality-guidelines 注明根 `./...` 不可用须显式列 module、`GOOS=linux` 门禁不含 client-windows）、`.gitignore` 加 `config*.yaml`（E.6，防真 token 泄漏）。
+- A.1 修正：`go mod tidy` 把 `golang.org/x/sys` 补为 client-windows 直接依赖（之前靠 workspace 从 server 经 modernc 传递解析，脱离 workspace 单编会失败）。
+- 小 refinement：loop 的 Warn 错误值键名 `reason`→`err`，与 spec logging「err (use "err", err)」及 server 端一致。
+
+**门禁**（全绿）：gofmt / vet / test / `CGO_ENABLED=1 -race`（config/mapping/report 全过，race 干净）/ `CGO_ENABLED=0` build / `GOOS=linux` build（server+shared）。注意 collect_windows.go 的 const 块列对齐被 gofmt 修过（既有文件，纯格式）。
+
+**真机 e2e**（本机 Windows，起真后端 + `register-device` + 跑 agent.exe）：
+- F.2 隐私 canary 四处：dry-run 输出无 canary 无 title 字段；`-v` 日志无 canary 无 token；snapshot 无标题；DB `last_report_json` 无 title 键。前台未命中规则 → 通用「某个应用·使用中」（F.3：不显示 exe 名）。
+- F.6 韧性：杀后端 → 退避 1s→2s→4s（无崩溃、warn err 无 token）→ 重启后端 → 自动续报 `report accepted`、snapshot online。
+- F.7 坏 token：401 → `ErrPermanent` → 退避直跳 2m0s、4s 内仅 1 条 warn（不刷屏）、不崩溃、无 token/Bearer。
+- F.8 单 exe：拷到临时目录、不带 `-config`，`DefaultPath` 正确解析同目录 config.yaml。
+- battery=null（台式机）、network=wifi、reported_at 带 Z（UTC）均符合契约。
+
+**遗留（交互项，待真机桌面）**：F.1 切到 VS Code/Chrome/微信看卡片变对应应用名（逻辑已由 mapping_test 覆盖，数据通路已验证）；F.4 静置 5min 看空闲标记（`TestResolveIdle` 覆盖阈值边界）；F.5 拔网线/切 wifi 看网络字段变化（network 采集已验证 wifi）。
+
+**注意（操作）**：git bash 的 `$!` 是 MSYS PID，`taskkill //PID` 找不到；按映像名 `taskkill //IM agent.exe //F` 才可靠。Windows 控制台代码页会搞坏中文（python 打印 DB 内容乱码，但 curl snapshot 正常 UTF-8；校验用字节匹配）。

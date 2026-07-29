@@ -3,7 +3,7 @@
   "name": "client-windows",
   "title": "Windows 上报客户端（Go 单 exe）",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-28-cyberstalk-me",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "代码完成（report 包 + main 装配 + README + spec 同步 + go.mod 修正），全门禁绿，真机 e2e 非交互项已验证（隐私 canary 四处 / 韧性 / 坏 token / 单 exe 异目录）。交互项 F.1/F.4/F.5（前台切 app、5min 空闲、拔网线）待真机桌面确认。详见 journal 2026-07-29。",
   "meta": {}
 }

@@ -6,12 +6,30 @@
 
 ## Tooling (must pass before any commit)
 
+Run from the repo root with **explicit module paths**. The `go.work` workspace
+makes bare `go build ./...` fail with "directory prefix . does not contain
+modules listed in go.work", so the three modules must be listed by name:
+
 ```bash
-gofmt -l .          # no output = formatted
-go vet ./...
-go test ./...
-go build ./...      # with CGO_ENABLED=0
+gofmt -l shared server client-windows   # no output = formatted
+go vet ./server/... ./shared/... ./client-windows/...
+go test ./server/... ./shared/... ./client-windows/...
+CGO_ENABLED=0 go build ./server/... ./shared/... ./client-windows/...
 ```
+
+The Linux cross-compile gate (the VPS deploy check) covers only the server-side
+modules — `client-windows` is Windows-only by build constraint, so `GOOS=linux`
+excludes all of its files ("build constraints exclude all Go files") and it
+cannot be cross-built to Linux:
+
+```bash
+CGO_ENABLED=0 GOOS=linux go build ./server/... ./shared/...
+```
+
+The Windows client is instead validated by the native-Windows gate above
+(`./client-windows/...` in build/vet/test). Its Win32 collectors
+(`internal/collect`) are Windows-only with no cross-platform stub — a stub
+would only buy a fake green build for code that can never run anywhere else.
 
 No golangci-lint requirement for the MVP; `gofmt` + `go vet` + tests is the
 bar. If golangci-lint is added later, update this file with the chosen config.

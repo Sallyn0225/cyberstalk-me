@@ -20,3 +20,8 @@ skills-lock.json
 # Go cross-build outputs in module roots (linux targets have no .exe)
 /client-windows/agent
 /server/server
+
+# Agent config holds a device bearer token — never commit the real one.
+# Only config.example.yaml is tracked.
+/client-windows/config*.yaml
+!/client-windows/config.example.yaml

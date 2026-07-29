@@ -31,6 +31,7 @@ cyberstalk-me/
 │   ├── cmd/agent/main.go
 │   └── internal/
 │       ├── collect/         # Win32 collectors (foreground window, idle, battery, network)
+│       ├── config/          # config.yaml load + validation + defaults (pure logic, tested)
 │       ├── mapping/         # sanitization rules: process name -> {app, description}
 │       └── report/          # HTTP POST loop with retry/backoff
 ├── web/                     # React + Vite + TS frontend (see frontend spec)
@@ -55,6 +56,12 @@ cyberstalk-me/
   `state` → `hub` (offline events are broadcast).
 - Wiring (constructing store, hub, tracker, router) happens in
   `cmd/server/main.go`, not in package `init()`.
+- **`client-windows/internal/` packages are isolated by design.** `config`,
+  `collect`, `mapping`, and `report` do not import each other; `report` only
+  receives `shared.ReportPayload`, and `mapping` only receives a process name
+  plus a lazy title getter. Collect → mapping → payload assembly happens in
+  `cmd/agent/main.go`. `collect` is Windows-only (`//go:build windows`) with no
+  cross-platform stub; the other three are pure/portable and unit-tested.
 
 ---
 

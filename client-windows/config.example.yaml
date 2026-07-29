@@ -1,0 +1,62 @@
+# cyberstalk-me Windows agent config.
+#
+# Copy this file to config.yaml next to agent.exe and fill it in.
+# The first four keys are printed verbatim by:
+#   server register-device <id> <name> windows
+#
+# config.yaml contains a device token — treat it as a secret and tighten its
+# ACL (see README.md).
+
+server_url: http://localhost:8080
+device_id: win-desktop
+token: 请粘贴 register-device 打印的 64 位 token
+interval: 10s
+
+# Optional. The server re-stamps the name it was registered with, so this only
+# affects local log readability. Rename a device with register-device, not here.
+device_name: 我的台式机
+
+# No keyboard/mouse input for this long counts as idle.
+idle_threshold: 5m
+
+# Fallbacks for a process with no rule below. Deliberately generic: the exe
+# name is never used as an app name, because the name itself can leak
+# (internal tools, project codenames). Want it shown? Write a rule.
+default_app: 某个应用
+default_description: 使用中
+
+# Shown when there is no foreground window (lock screen, session switch).
+locked_app: 已锁屏
+locked_description: 人不在
+
+# process is the exe base name, matched case-insensitively.
+# title_patterns is optional: the raw window title is read only for rules that
+# have patterns, is matched in memory, and is never reported — only the
+# matching pattern's description is.
+rules:
+  - process: code.exe
+    app: VS Code
+    description: 在写代码
+
+  - process: chrome.exe
+    app: Chrome
+    description: 在上网
+    title_patterns:
+      - match: "(?i)youtube|bilibili"
+        description: 在看视频
+      - match: "(?i)github"
+        description: 在看代码
+
+  - process: wechat.exe
+    app: 微信
+    description: 在聊天
+
+  - process: explorer.exe
+    app: 文件管理器
+    description: 在翻文件
+
+# DANGER: every process listed here reports its RAW WINDOW TITLE as the
+# description, verbatim and publicly. That is the one and only opt-out of
+# sanitization. Keep it empty unless you really mean it.
+# A process listed here must also have a rule above.
+expose_title: []
