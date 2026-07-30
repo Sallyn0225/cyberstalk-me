@@ -56,9 +56,12 @@ export function DeviceCard({ device }: DeviceCardProps) {
 }
 ```
 
-- Components are **presentational**: they receive device data via props and
-  render it. All data acquisition lives in `useDeviceStream` at the `App`
-  level — components below `App` never fetch or subscribe.
+- Components are **presentational**: they receive their data via props and
+  render it. Data acquisition lives in hooks, and a hook is called by the
+  component that owns the corresponding piece of UI state: `useDeviceStream` in
+  `App` (unconditional, above the tabs), `useUsage` in `UsagePanel` (which owns
+  the window selection). Everything below those two — `DeviceCard`,
+  `UsageTotals`, `UsageAppList`, `UsageChart` — never fetches or subscribes.
 - Keep components small; extract a child component when a JSX block needs its
   own props, not before.
 
@@ -89,12 +92,36 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
 ---
 
+## Charts (no chart library)
+
+- **Bars are `div`s, not a charting dependency.** A ranking bar is a track plus a
+  width percentage; a distribution bar is a track plus a height percentage.
+  Recharts / Chart.js / D3 are not worth their bundle for this, and the theme's
+  own colours are what keeps the charts looking like the rest of the site.
+- Percentages go through `sharePercent` in `lib/usage.ts`. Never divide inline:
+  every one of these denominators can be 0 (empty window, all-locked device),
+  and `NaN%` / `Infinity%` in a `style` attribute is the failure mode.
+- The server pads every window to a fixed slot count (24 hours, N days), so the
+  frontend never fills gaps itself. Empty slots render as an empty track, which
+  is how "no usage at this hour" is shown.
+- One accent, lightness steps for the rest (`bg-primary`, `bg-primary/40`,
+  `bg-muted-foreground/40`). Do not introduce a second hue to distinguish
+  series.
+- Mixed CJK/digit strings use `tabular-nums`, not `font-mono`: the mono fallback
+  for CJK spaces 小时 / 分 far apart.
+
+---
+
 ## Accessibility
 
 - Keep the page semantic: a `<main>` wrapper, one card per device, device name
   in a real heading (`<h2>`).
 - Online/offline must not be conveyed by color alone — pair the indicator with
   text ("在线" / "离线").
+- **Bar height and bar width are never the only encoding.** Every bar carries a
+  text equivalent: an `sr-only` span plus a `title` ("14 时，活跃 32 分，主要应用
+  Visual Studio Code"). Decorative bars that merely restate adjacent numbers
+  (the totals strip) are `aria-hidden` instead, so nothing is read twice.
 - Decorative lucide icons get `aria-hidden`; icons that carry meaning on their
   own get an `aria-label` or adjacent visible text.
 

@@ -8,8 +8,10 @@
 
 The frontend is a single-page **React + Vite + TypeScript** app in `web/`,
 using **shadcn/ui + Tailwind CSS** for components and styling. It is one public
-page (a device card grid) with no routing, no auth, and no forms — keep the
-tree flat and resist adding structure the app doesn't need. This layout was
+page with two tabs (live device cards, usage statistics) and **no router** — the
+tab is `useState` in `App`, so the server's static fallback stays a single route
+and there are no deep links to keep working. No auth, no forms; keep the tree
+flat and resist adding structure the app doesn't need. This layout was
 seeded from the project design (`.trellis/tasks/07-28-cyberstalk-me/design.md`);
 update it if reality diverges.
 
@@ -30,22 +32,29 @@ web/
 │   └── favicon.svg
 └── src/
     ├── main.tsx             # ReactDOM entry
-    ├── App.tsx              # page shell: header + DeviceGrid (named export)
+    ├── App.tsx              # page shell: header + tabs (此刻 / 使用时间), named export
     ├── index.css            # Tailwind v4 entry + font + shadcn theme tokens
     ├── components/
-    │   ├── ui/              # shadcn/ui generated primitives (card.tsx, badge.tsx, ...)
+    │   ├── ui/              # shadcn/ui generated primitives (card.tsx, tabs.tsx, ...)
     │   ├── DeviceGrid.tsx   # app components stay flat, one per file, PascalCase
     │   ├── DeviceCard.tsx
-    │   └── BatteryIndicator.tsx
+    │   ├── BatteryIndicator.tsx
+    │   ├── UsagePanel.tsx   # usage tab: window + device selection, owns useUsage
+    │   ├── UsageTotals.tsx  # active / idle / locked totals
+    │   ├── UsageAppList.tsx # two-level app ranking (Collapsible)
+    │   └── UsageChart.tsx   # hourly or daily distribution, one component for both
     ├── hooks/               # custom hooks, camelCase use*.ts
-    │   └── useDeviceStream.ts
+    │   ├── useDeviceStream.ts
+    │   └── useUsage.ts
     ├── types/
     │   ├── contract.ts      # TS mirror of shared/ Go structs — single source
     │   └── contract.test.ts # tests sit next to the code they cover
     └── lib/                 # pure helpers, no React imports
         ├── utils.ts         # cn() — created by shadcn init
-        ├── format.ts        # formatting / time-ago
-        └── format.test.ts
+        ├── format.ts        # formatting / time-ago / durations
+        ├── format.test.ts
+        ├── usage.ts         # share math for bars (zero-denominator safe)
+        └── usage.test.ts
 ```
 
 There is no `web/dist/`: `vite build` writes into `server/cmd/server/web/`, the

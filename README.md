@@ -25,6 +25,8 @@
 - **单二进制部署** — Go 服务端内嵌前端与 SQLite，没有配置文件，全部走环境变量；持久化状态只有一个 `.db` 文件。
 - **设备端脱敏** — 原始窗口标题、进程路径永远不出设备，上报的只有映射后的结果（`VS Code · 在写代码`）。
 - **近实时推送** — 首屏 `GET /api/v1/snapshot`，之后靠 SSE 增量推，页面不轮询。
+- **屏幕使用时间** — 页面第二个 tab 按今日 / 近 7 天 / 近 30 天展示各应用的使用时长排行与时间分布；
+  统计同样只基于已脱敏的映射结果（`VS Code · 在写代码`），原始上报明细不留存。
 - **离线自动判定** — 设备静默超过阈值，服务端主动广播 `offline`，卡片自己变灰。
 - **一条命令上线** — 预构建多架构镜像（`linux/amd64` + `linux/arm64`），部署机不需要装 Go 和 Node。
 - **token 一次性发放** — 每台设备一个独立 token，服务端只存 SHA-256 哈希，明文只打印一次。
@@ -54,7 +56,7 @@ flowchart LR
     B["浏览器<br/>公开只读页面"]
 
     C -->|"POST /api/v1/report · Bearer token<br/>只带脱敏后的字段"| S
-    S -->|"GET /api/v1/snapshot（首屏）<br/>GET /api/v1/stream（SSE 增量）"| B
+    S -->|"GET /api/v1/snapshot（首屏）<br/>GET /api/v1/stream（SSE 增量）<br/>GET /api/v1/usage（使用时间统计）"| B
 ```
 
 服务端一个进程干三件事：HTTP API、SSE 广播（in-process hub，无外部消息队列）、SQLite 读写；
@@ -68,6 +70,7 @@ flowchart LR
 | `POST /api/v1/report` | `Authorization: Bearer <设备 token>` | 上报一次状态，成功返回 `204`。body 里的 `device_id` 必须与 token 绑定的设备一致 |
 | `GET /api/v1/snapshot` | 公开 | 所有上报过的设备当前状态（JSON 数组），首屏用；也是容器健康检查的探测点 |
 | `GET /api/v1/stream` | 公开 | SSE 流，事件类型 `ready` / `update` / `offline` |
+| `GET /api/v1/usage` | 公开 | 屏幕使用时间聚合，`?window=today\|7d\|30d`（缺省 `today`，非法值 `400`）；窗口按 `DISPLAY_TIMEZONE` 的本地整天切分 |
 
 设备的在线判定一律用**服务端时钟**（`last_seen_at`），客户端自报的 `reported_at` 只用于展示与排查，
 所以客户端时间跑偏不会影响在线状态。
