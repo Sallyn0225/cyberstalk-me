@@ -21,6 +21,12 @@ services:
     environment:
       OFFLINE_THRESHOLD: ${OFFLINE_THRESHOLD:-60s}
       SCAN_INTERVAL: ${SCAN_INTERVAL:-5s}
+      DISPLAY_TIMEZONE: ${DISPLAY_TIMEZONE:-Asia/Shanghai}
+      USAGE_RETENTION_DAYS: ${USAGE_RETENTION_DAYS:-365}
+      USAGE_PRUNE_INTERVAL: ${USAGE_PRUNE_INTERVAL:-1h}
+      # Empty means "follow OFFLINE_THRESHOLD"; the server resolves the
+      # default, so there is nothing to keep in sync here.
+      USAGE_MAX_GAP: ${USAGE_MAX_GAP:-}
     volumes:
       # The SQLite database is the only persistent state. A named volume keeps
       # it out of reach of host permission quirks and survives `down` + `up`.
