@@ -149,3 +149,52 @@
 - **F.8 单 exe**：agent.exe + config.yaml 拷到异目录，从任意 CWD 不带 `-config` 跑 → 正确解析 exe 同目录 config（`os.Executable()` 同目录，非 CWD）。
 
 **遗留（交互项，仍待真机桌面人工确认）**：F.1 切前台 app 看卡片跟随、F.4 静置 5min 看空闲标记、F.5 拔网线/切 wifi 看网络字段——逻辑均有单测覆盖（mapping 规则命中、idle 阈值边界、network wifi 采集），数据通路本会话已端到端验证。未 commit（`.gitattributes` 改动待用户决定是否随任务一起提交）。
+
+
+## Session 1: 后端 Docker 化与 CI/CD 交付
+
+**Date**: 2026-07-30
+**Task**: 后端 Docker 化与 CI/CD 交付
+**Branch**: `main`
+
+### Summary
+
+把 server 封装成多架构容器镜像并配好 GitHub Actions 流水线，部署方式从「自己编译裸二进制」变为「clone + docker compose up -d」。AC1-AC9 全部通过，其中运行时链路在自有 VPS 上实测、多架构构建由 CD 验证。纯增量，未改任何业务代码。
+
+### Main Changes
+
+- Dockerfile 两阶段：build 阶段钉 $BUILDPLATFORM 靠 Go 交叉编译够到目标架构，runtime 阶段零 RUN —— 因此多架构构建完全不需要 QEMU（实测 amd64+arm64 一次 2m57s）。镜像 29.2MB，非 root uid 65532
+- compose.yaml 让 image 与 build 并存：up -d 拉 GHCR 预构建镜像，build 则本地构建。所有变量带内联默认值，无 .env 也能起。刻意不写死资源限制——那属于部署者的机器
+- CI 三个 job（go/web/docker）复用 .trellis/spec 里已有的门禁，没另起一套标准。唯一新增的门禁是内嵌产物新鲜度检查：CI 重建前端并 diff server/cmd/server/web，堵住「改了前端忘记 build」导致静默发布旧界面
+- CD 推 GHCR：v* 出 semver+latest，main 出 edge，都带 GHA 缓存与最小权限。后加 paths-ignore 让纯文档提交不再触发无意义的 edge 重建（tag 推送不受路径过滤影响，已查文档确认）
+- 新增 .trellis/spec/backend/deployment-guidelines.md，把「运行阶段零 RUN」这条代码里看不出来的承重约束固化下来
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `407231e` | (see git log) |
+| `5acbf47` | (see git log) |
+| `46f5e42` | (see git log) |
+| `f5307e7` | (see git log) |
+| `5c4be2b` | (see git log) |
+| `0d4831e` | (see git log) |
+| `6b19d14` | (see git log) |
+
+### Testing
+
+- [OK] VPS 实测 AC1/2/3/5：页面 200、snapshot 合法 JSON、SSE 带 X-Accel-Buffering: no、register-device 在容器内注册成功、token 上报 204 而错误/缺失 token 401、down 再 up 后 token 仍有效、容器内 uid=65532 且无 Go 工具链无源码
+- [OK] AC6 正反都验：三处人为缺陷分别让 go/gofmt、web/typecheck、web/embed-freshness 各自变红，无关 job 保持绿
+- [OK] AC7 按 digest 拉 arm64 镜像，其二进制经 file 确认为 ELF ARM aarch64 statically linked stripped —— 顺带旁证 CGO_ENABLED=0 与 -s -w 生效
+- [OK] AC8 仓库转公开后从真正冷启动重跑：无本地镜像 → 匿名 clone → compose 自行拉 latest → 公网访客看到设备卡片，全程只用 README 里的命令
+- [OK] AC9 三次邻居体检：VPS 上三个既有生产服务 uptime 全程未断，容器/卷/镜像/builder 零残留，8080 已释放，全程未执行任何 prune
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 只剩 Android 客户端子任务（07-28-client-android，仍在 planning），父任务 4/5
+- vps.md 里那个弱密码仍开着 SSH 密码登录且已出现在会话记录中，建议轮换并关掉 PasswordAuthentication
+- 验证期发现 docker pull --platform 在本地已有同 tag 时不重新拉、inspect 仍报旧架构；验架构须按 digest 拉。已写进 spec
