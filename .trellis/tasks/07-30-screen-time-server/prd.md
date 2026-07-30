@@ -71,24 +71,47 @@
 
 ## Acceptance Criteria
 
-- [ ] AC2.1（父 AC2）设备正常心跳并切换前台应用，各应用活跃时长之和与实际经过时间一致
+> 2026-07-30 全部验证通过。AC2.1–AC2.5 是 handler 层用假时钟连续 `POST /report` 实测的
+> （真实 `:memory:` store，非 mock）；**真机链路的复验属父任务** —— 客户端子任务交付
+> `Locked` 之后才有端到端的锁屏数据。
+
+- [x] AC2.1（父 AC2）设备正常心跳并切换前台应用，各应用活跃时长之和与实际经过时间一致
       （允许一个上报间隔的误差）。
-- [ ] AC2.2（父 AC3）停止上报超过 `USAGE_MAX_GAP` 后恢复，中断的那段时间不计入任何应用时长。
-- [ ] AC2.3（父 AC4）前台应用不变但超过 `idle_threshold` 无输入，该段计入 `idle` 总计，
-      不计入该应用的活跃时长。
-- [ ] AC2.4（父 AC5）锁屏期间计入 `locked` 总计，不计入任何应用，也不计入 `idle`。
-- [ ] AC2.5（父 AC6）跨整点的上报间隔被拆分到前后两个小时桶。
-- [ ] AC2.6（父 AC10）把 `USAGE_RETENTION_DAYS` 设为极小值并触发清理后，旧桶从库中消失，
-      接口不因此报错。
-- [ ] AC2.7（父 AC11）非法 `window` 返回 400；非法 `USAGE_RETENTION_DAYS` / `DISPLAY_TIMEZONE`
-      导致启动失败并给出可读错误。
-- [ ] AC2.8（父 AC12）`usage_bucket` 表不可写时（测试中 `DROP TABLE`），
+      *(`TestUsageCreditsPreviousReportsActivity`：切换应用后时长归给切换前的应用；
+      `TestAttributeSecondsSumMatchesInterval`：1s–3h 各区间归因秒数之和等于经过时间)*
+- [x] AC2.2（父 AC3）停止上报超过 `USAGE_MAX_GAP` 后恢复，中断的那段时间不计入任何应用时长。
+      *(`TestUsageDropsIntervalsLongerThanMaxGap`：静默 4h 后全部总计为 0，恢复上报后重新计时)*
+- [x] AC2.3（父 AC4）前台应用不变但超过 `idle_threshold` 无输入，该段计入 `idle` 总计，
+      不计入该应用的活跃时长。*(`TestUsageIdleTimeIsNotAppTime`：`apps` 为空)*
+- [x] AC2.4（父 AC5）锁屏期间计入 `locked` 总计，不计入任何应用，也不计入 `idle`。
+      *(`TestUsageLockedTimeIsNeitherAppNorIdleTime`，用的是实测过的真实形态：`locked=true`
+      且 `idle=false`)*
+- [x] AC2.5（父 AC6）跨整点的上报间隔被拆分到前后两个小时桶。
+      *(`TestUsageSplitsIntervalAcrossHourBoundary`：18:59:55 → 19:00:05 拆成 5s + 5s)*
+- [x] AC2.6（父 AC10）把 `USAGE_RETENTION_DAYS` 设为极小值并触发清理后，旧桶从库中消失，
+      接口不因此报错。*(`TestPruneUsageDeletesOnlyOlderBuckets`、`TestUsageAfterPruneReturnsZeros`、
+      `TestPruneUsageRunsAlongsideWritesAndStopsOnCancel`)*
+- [x] AC2.7（父 AC11）非法 `window` 返回 400；非法 `USAGE_RETENTION_DAYS` / `DISPLAY_TIMEZONE`
+      导致启动失败并给出可读错误。*(`TestUsageRejectsUnknownWindow`、`config_test.go` 的 10 条非法值；
+      容器内实测：`DISPLAY_TIMEZONE=Not/AZone` →
+      `load config: DISPLAY_TIMEZONE: invalid IANA timezone "Not/AZone"`，
+      `USAGE_RETENTION_DAYS=0` → `must be positive, got 0`，两者均退出码 1)*
+- [x] AC2.8（父 AC12）`usage_bucket` 表不可写时（测试中 `DROP TABLE`），
       `POST /report` 仍返回 204 并广播 SSE。
-- [ ] AC2.9 `AddUsage` 对同一键二次写入表现为**相加**而非覆盖。
-- [ ] AC2.10 `QueryUsage` 的边界语义为 `[from, to)`：等于 `from` 的桶包含，等于 `to` 的桶排除。
-- [ ] AC2.11 某 app 的 `activities` 各项秒数之和等于该 app 的 `seconds`（父 AC9 的服务端一半）。
-- [ ] AC2.12 `go test -race` 干净（新增的清理 goroutine 与上报写入并发，必须无数据竞争）。
-- [ ] AC2.13 `docker compose build && up` 后服务正常启动（验证 `time/tzdata` 生效）。
+      *(`TestReportSurvivesUsageWriteFailure`：另断言 `UpsertState` 也确实生效)*
+- [x] AC2.9 `AddUsage` 对同一键二次写入表现为**相加**而非覆盖。
+      *(`TestAddUsageAccumulatesInsteadOfOverwriting`)*
+- [x] AC2.10 `QueryUsage` 的边界语义为 `[from, to)`：等于 `from` 的桶包含，等于 `to` 的桶排除。
+      *(`TestQueryUsageRangeIsHalfOpen`)*
+- [x] AC2.11 某 app 的 `activities` 各项秒数之和等于该 app 的 `seconds`（父 AC9 的服务端一半）。
+      *(`TestAggregateTotalsAndRanking`)*
+- [x] AC2.12 `go test -race` 干净（新增的清理 goroutine 与上报写入并发，必须无数据竞争）。
+      *(`CGO_ENABLED=1 go test -race ./server/... ./shared/...` 全绿；
+      `TestPruneUsageRunsAlongsideWritesAndStopsOnCancel` 让 1ms 间隔的清理与 50 次写入真并发)*
+- [x] AC2.13 `docker compose build && up` 后服务正常启动（验证 `time/tzdata` 生效）。
+      *(容器内 `GET /api/v1/usage` 返回 `"timezone":"Asia/Shanghai"` 且
+      `"from":"2026-07-29T16:00:00Z"`（+08 本地零点）；同一容器里
+      `ls /usr/share/zoneinfo` 不存在 —— 证明是内嵌库在起作用，而非镜像自带)*
 
 ## Out of Scope
 
