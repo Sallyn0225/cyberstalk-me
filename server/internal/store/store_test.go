@@ -148,6 +148,33 @@ func TestGetStateNotFound(t *testing.T) {
 	}
 }
 
+func TestGetStateRegisteredNeverReported(t *testing.T) {
+	// Regression: the three state columns come from a LEFT JOIN, so they are
+	// all NULL until the first report lands. Scanning any of them into a plain
+	// string made every device's first report log an error ("converting NULL
+	// to string is unsupported") and made this whole branch dead code.
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.RegisterDevice(ctx, "d1", "My PC", "windows", sha256hex("t"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	row, err := s.GetState(ctx, "d1")
+	if err != nil {
+		t.Fatalf("get state: %v", err)
+	}
+	if row.DeviceID != "d1" || row.DeviceName != "My PC" || row.DeviceType != "windows" {
+		t.Fatalf("device identity not returned: %+v", row)
+	}
+	// Zero timestamps are what attributeUsage keys on to skip the first report.
+	if !row.LastSeenAt.IsZero() || !row.ReportedAt.IsZero() {
+		t.Fatalf("want zero timestamps, got reported=%v last_seen=%v", row.ReportedAt, row.LastSeenAt)
+	}
+	if row.Payload.DeviceID != "" {
+		t.Fatalf("want zero payload, got %+v", row.Payload)
+	}
+}
+
 func TestTokenNotStoredPlaintext(t *testing.T) {
 	// Security red-line: the raw token must never appear in the database.
 	// We verify by querying the devices table directly and checking that

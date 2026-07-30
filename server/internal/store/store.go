@@ -193,8 +193,16 @@ type StateRow struct {
 	LastSeenAt time.Time
 }
 
-// GetState returns the latest state row for id, or ErrDeviceNotFound if the
-// device is registered but has never reported (or isn't registered at all).
+// GetState returns the latest state row for id. An unregistered device is
+// ErrDeviceNotFound; a device that is registered but has never reported is
+// NOT an error — it comes back as a row carrying only the device identity,
+// with a zero Payload and zero timestamps, which is how callers tell "no
+// interval to attribute yet" apart from a real failure.
+//
+// All three state columns come from a LEFT JOIN and are therefore NULL for
+// the never-reported case, so each must scan into a sql.NullString: scanning
+// any of them into a plain string fails the whole Scan before the
+// reportJSON.Valid check below can be reached.
 func (s *Store) GetState(ctx context.Context, id string) (StateRow, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT d.device_id, d.device_name, d.device_type,
@@ -203,8 +211,7 @@ func (s *Store) GetState(ctx context.Context, id string) (StateRow, error) {
 		LEFT JOIN device_state s ON s.device_id = d.device_id
 		WHERE d.device_id = ?`, id)
 	var sr StateRow
-	var reportJSON sql.NullString
-	var reportedAt, lastSeenAt string
+	var reportJSON, reportedAt, lastSeenAt sql.NullString
 	if err := row.Scan(&sr.DeviceID, &sr.DeviceName, &sr.DeviceType, &reportJSON, &reportedAt, &lastSeenAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return StateRow{}, ErrDeviceNotFound
@@ -220,14 +227,16 @@ func (s *Store) GetState(ctx context.Context, id string) (StateRow, error) {
 			DeviceType: sr.DeviceType,
 		}, nil
 	}
+	// Past this point the device_state row exists, so its two NOT NULL
+	// timestamp columns are guaranteed present.
 	if err := json.Unmarshal([]byte(reportJSON.String), &sr.Payload); err != nil {
 		return StateRow{}, fmt.Errorf("decode payload for %s: %w", id, err)
 	}
-	rt, err := time.Parse(time.RFC3339, reportedAt)
+	rt, err := time.Parse(time.RFC3339, reportedAt.String)
 	if err != nil {
 		return StateRow{}, fmt.Errorf("parse reported_at for %s: %w", id, err)
 	}
-	st, err := time.Parse(time.RFC3339, lastSeenAt)
+	st, err := time.Parse(time.RFC3339, lastSeenAt.String)
 	if err != nil {
 		return StateRow{}, fmt.Errorf("parse last_seen_at for %s: %w", id, err)
 	}
