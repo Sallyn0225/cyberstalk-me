@@ -58,6 +58,29 @@ jobs:
           go vet ./client-windows/...
           go build ./client-windows/...
 
+  # The go job above cross-compiles client-windows but cannot run its tests:
+  # under GOOS=linux the collect package is excluded and the module does not
+  # build at all. That left config parsing, the mapping rules and the setup
+  # server untested in CI. This job is where those actually run.
+  client-windows:
+    name: client-windows (test on Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: |
+            client-windows/go.sum
+            go.work.sum
+
+      # -race needs cgo; windows-latest ships a gcc that satisfies it.
+      - name: test
+        env:
+          CGO_ENABLED: 1
+        run: go test -race ./client-windows/...
+
   web:
     name: web (lint / typecheck / test / build / embed freshness)
     runs-on: ubuntu-latest
@@ -99,6 +122,49 @@ jobs:
           git add --intent-to-add -- server/cmd/server/web
           if ! git diff --exit-code -- server/cmd/server/web; then
             echo "::error::server/cmd/server/web is stale. Run 'npm run build' in web/ and commit the output alongside your frontend change."
+            exit 1
+          fi
+
+  webui:
+    name: webui (lint / typecheck / test / build / embed freshness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client-windows/webui/package-lock.json
+
+      - name: npm ci
+        working-directory: client-windows/webui
+        run: npm ci
+
+      - name: lint
+        working-directory: client-windows/webui
+        run: npm run lint
+
+      - name: typecheck
+        working-directory: client-windows/webui
+        run: npm run typecheck
+
+      - name: test
+        working-directory: client-windows/webui
+        run: npx vitest run
+
+      # Same failure mode as the web job, with a sharper edge: client-windows
+      # ships no release artifact, so a stale bundle means every user who
+      # clones and builds gets the previous UI in their agent.exe.
+      - name: build
+        working-directory: client-windows/webui
+        run: npm run build
+
+      - name: embedded setup UI is up to date
+        run: |
+          git add --intent-to-add -- client-windows/cmd/agent/webui
+          if ! git diff --exit-code -- client-windows/cmd/agent/webui; then
+            echo "::error::client-windows/cmd/agent/webui is stale. Run 'npm run build' in client-windows/webui/ and commit the output alongside your change."
             exit 1
           fi
 
