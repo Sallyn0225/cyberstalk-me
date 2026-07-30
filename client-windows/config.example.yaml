@@ -1,6 +1,11 @@
 # cyberstalk-me Windows agent config.
 #
 # Copy this file to config.yaml next to agent.exe and fill it in.
+#
+# Or skip the copying: `agent.exe -setup` opens a local page that lists the
+# applications you have actually used, turns their window titles into rules,
+# and writes this file for you.
+#
 # The first four keys are printed verbatim by:
 #   server register-device <id> <name> windows
 #

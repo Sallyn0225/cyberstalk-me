@@ -45,7 +45,10 @@
 
 客户端提供了 `-dry-run`：采集并映射一轮，把「将要发送的脱敏载荷」打印到 stdout 后退出，不联网。
 配完规则先跑这个，用一个诱饵标题（比如把浏览器标签命名为 `SECRET-TITLE-CANARY`）确认它没有出现在输出里。
-完整说明见 [`client-windows/README.md`](client-windows/README.md)。
+
+上面第 3 条只有一个例外：`agent.exe -setup` 的配置界面会把原始标题**经本机回环端口显示给你自己看**，
+否则没法对着真实标题配规则。它只监听 `127.0.0.1`、每次启动生成一次性令牌、不写日志也不落盘、
+配完即退出，并且在依赖图上就够不到上报代码。完整约束见 [`client-windows/README.md`](client-windows/README.md)。
 
 ## 架构
 
@@ -143,16 +146,22 @@ docker compose exec app cyberstalk-server register-device win-desktop "我的台
 
 ## 接上客户端
 
-把上面打印的 `server_url` / `device_id` / `token` / `interval` 四行粘进客户端的 `config.yaml`
-（从 [`client-windows/config.example.yaml`](client-windows/config.example.yaml) 复制一份改），补上你的映射规则，然后跑起来：
-
 ```bash
+# 可视化配置：开一个本地页面，列出你用过的应用，点几下配好规则并写入 config.yaml
+./agent.exe -setup
+
 # 先干跑一轮，确认没有敏感信息泄漏
 ./agent.exe -config ./config.yaml -dry-run
 
 # 确认无误后常驻
 ./agent.exe -config ./config.yaml
 ```
+
+`-setup` 全程不联网。它持续观察前台窗口，把你**实际用过**的应用和它们的窗口标题列出来，
+让你对着真实标题写规则，并常驻显示「此刻会显示成什么」——那一行是用同一套映射代码算出来的，
+不是模拟。不想用界面就手写：把上面打印的 `server_url` / `device_id` / `token` / `interval`
+四行粘进 `config.yaml`（从 [`client-windows/config.example.yaml`](client-windows/config.example.yaml)
+复制一份改），补上映射规则。
 
 构建方式、映射规则语法、开机自启（注册表 Run 键）、断线退避策略见 [`client-windows/README.md`](client-windows/README.md)。
 
