@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/07-30-screen-time/prd.md", "reason": "父任务需求全景：本子任务只交付 R1，但要理解 Locked 字段将被服务端如何消费（R2.6）"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "技术设计在 §2.1：字段定义、注释要求、以及新旧客户端的兼容降级方向"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务同时改 shared/contract.go 与 web/src/types/contract.ts，是典型的跨层契约同步"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "shared 模块只放数据类型不放逻辑；client-windows 各 internal 包互不 import 的约定"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "表驱动测试 + stdlib testing、禁止断言库；契约类型只在 shared 声明"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "TS 契约镜像与运行时校验的既有风格，决定 locked 用可选校验而非必需"}

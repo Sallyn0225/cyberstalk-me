@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-30-screen-time/prd.md", "reason": "父任务 AC1–AC15 的最终核对，尤其 AC14 脱敏红线复验与 AC15 无回归"}
+{"file": ".trellis/tasks/07-30-screen-time/implement.md", "reason": "集成验收的五个步骤与规范同步清单，逐项确认无遗漏"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "三个子任务跨 shared/server/web 三层，最终集成审查要确认契约与数据流首尾一致"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "全量验证命令的门槛依据（含 -race 与 Linux 交叉编译）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "embed freshness 闸：前端产物与源码必须同步提交"}

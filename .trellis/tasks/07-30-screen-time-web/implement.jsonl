@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/07-30-screen-time/prd.md", "reason": "父任务需求全景，特别是 D4 两级展示、D5 三个窗口、D6 tab 而非路由、D8 不接 SSE"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "前端设计在 §8（文件结构、状态归属、契约校验、不引依赖的图表做法）；响应契约在 §2.2"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范索引，进入实现前的总入口"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "扁平组件目录、无 feature 目录、无 barrel、components/ui 必须用 shadcn 生成；构建产物写入 server/cmd/server/web"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "无状态库无 Context；派生值 render 时算不进 state——这是本任务最容易违反的一条"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "useUsage 的写法：AbortController 取消、effect 依赖、避免因依赖抖动反复重建"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件命名与导出风格、shadcn 原语的使用方式"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "契约类型只在 types/contract.ts 声明；运行时校验从宽的既有取向"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/typecheck/vitest 门槛，以及 embed freshness（前端产物必须一并提交）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用既有 lib/format.ts 的格式化风格与 radix-ui/motion 现有依赖，不新增运行时依赖"}

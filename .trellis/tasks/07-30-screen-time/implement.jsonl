@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "§11 是父任务要执行的规范更新清单；§10 是兼容性与回滚说明"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "必须更新的目标文件：「Never accumulate history rows」需限定到 device_state，并把小时桶表加入 Schema 段"}
+{"file": ".trellis/spec/backend/deployment-guidelines.md", "reason": "必须更新的目标文件：补四个新环境变量与内嵌 tzdata 的原因"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "必须更新的目标文件：「entire state fits in one hook」在本任务后不再成立"}
+{"file": ".trellis/tasks/07-28-cyberstalk-me/prd.md", "reason": "必须更新的目标文件：R2.4 与 Out of Scope 第 1 条被本任务显式修订"}

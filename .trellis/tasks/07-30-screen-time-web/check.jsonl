@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/07-30-screen-time-web/prd.md", "reason": "验收标准 AC3.1–AC3.10 与约束段（无状态库、扁平目录、不新增依赖、产物必须提交）"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "对照 §8 核查文件归属、状态归属、校验从宽、图表无依赖实现"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/typecheck/vitest 必须全绿；核查 server/cmd/server/web 产物是否与源码同步提交"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核查 useDeviceStream 是否仍在 App 顶层无条件调用（切 tab 不得重建 SSE），以及是否有格式化字符串被存进 state"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核查组件命名/导出、shadcn 原语是否手写"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "核查 useUsage 的清理函数、AbortController、effect 依赖是否正确"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "核查校验是否过严（校验了字符串枚举值会导致后端扩展时整块数据被丢弃）、是否有 any/断言绕过"}

@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-30-screen-time-contract/prd.md", "reason": "验收标准 AC1.1–AC1.5，以及「关于 AC1.5 的一个决定」里前端可选校验的理由"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "§2.1 的兼容性要求：锁屏绝不能被算成活跃，降级方向必须安全"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查契约三处（Go 结构、客户端填充、TS 镜像）是否真的同步，漏一处就是跨层不一致"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "gofmt/vet/test 门槛、测试风格、禁止 CGO 与包级可变状态"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint/typecheck/vitest 门槛，以及前端构建产物必须与源码一起提交的 embed 约束"}

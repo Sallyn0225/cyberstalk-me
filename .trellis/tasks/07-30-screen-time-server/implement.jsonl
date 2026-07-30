@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/07-30-screen-time/prd.md", "reason": "父任务需求全景与 D1–D8 决策，特别是 D2 口径、D3 小时桶而非会话段、D7 时区"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "本子任务的完整技术设计在 §1、§3–§7：包边界、表结构、归因算法、API、配置、并发"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引，进入实现前的总入口"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite 约定：无 ORM、手写 SQL、禁 SELECT *、RFC3339 UTC 时间戳、WAL/busy_timeout、新表走 CREATE TABLE IF NOT EXISTS"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "包按职责划分且禁止 service/repository 分层；依赖方向约束——新增的 usage 包不得 import store"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "归因失败必须只记日志不影响 POST /report 的 204（R2.7），需按既有错误处理约定落地"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "归因失败的 slog 记法；且日志绝不能带上原始标题或活动描述"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "handler 测试必须用真实 :memory: store 且禁止 mock store（决定了 AC2.8 要用 DROP TABLE）；第三方依赖白名单；禁 CGO"}
+{"file": ".trellis/spec/backend/deployment-guidelines.md", "reason": "环境变量约定与镜像形态，内嵌 tzdata 的原因与「运行阶段不得加 RUN」的硬约束相关"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "归因要复用既有 store.GetState 与 last_seen_at，而不是新造内存状态"}

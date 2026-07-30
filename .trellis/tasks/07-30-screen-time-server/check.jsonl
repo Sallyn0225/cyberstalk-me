@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-30-screen-time-server/prd.md", "reason": "验收标准 AC2.1–AC2.13 与约束段（不新增依赖、usage 包零 I/O、禁 mock store）"}
+{"file": ".trellis/tasks/07-30-screen-time/design.md", "reason": "对照 §1 的依赖方向、§3 的表结构与索引、§4 的归因语义逐项核查"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "gofmt/vet/test/-race 门槛、真实 store 测试、禁 CGO 与 panic、依赖白名单"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "核查 SQL 是否命名列、时间戳是否 UTC RFC3339、索引是否覆盖清理路径"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "核查 usage 包是否误 import store，破坏单向依赖"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核查归因错误未被 return，POST /report 语义未变"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "核查新增日志不含活动描述/原始标题，且级别恰当"}
+{"file": ".trellis/spec/backend/deployment-guidelines.md", "reason": "核查四个新环境变量与 compose/.env.example 同步，以及 tzdata 内嵌而非改 Dockerfile"}
