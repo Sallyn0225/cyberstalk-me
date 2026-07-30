@@ -28,6 +28,21 @@ type Config struct {
 	// ScanInterval is how often the state tracker scans for newly-offline
 	// devices.
 	ScanInterval time.Duration
+	// UsageRetentionDays is how many days of hourly usage buckets are kept.
+	UsageRetentionDays int
+	// UsagePruneInterval is how often buckets older than the retention window
+	// are deleted.
+	UsagePruneInterval time.Duration
+	// UsageMaxGap is the longest silence still attributed to the last observed
+	// activity. A longer gap is a blind spot: nothing is attributed at all, so
+	// a powered-off night does not become eight hours of usage.
+	UsageMaxGap time.Duration
+	// DisplayTimezone is the IANA name the site's local days and hours are
+	// computed in, kept alongside Location so it can be echoed on the wire.
+	DisplayTimezone string
+	// Location is DisplayTimezone resolved. Loaded once at startup so no
+	// request has to.
+	Location *time.Location
 }
 
 // Load reads configuration from the environment and applies defaults.
@@ -42,12 +57,39 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	// USAGE_MAX_GAP defaults to OFFLINE_THRESHOLD: "silent long enough to show
+	// as offline" and "silent long enough that we no longer know what the
+	// device was doing" are the same line by default. It has to be read after
+	// offlineThreshold, or the default would always be zero and every interval
+	// would be discarded as a gap.
+	usageMaxGap, err := getEnvDuration("USAGE_MAX_GAP", offlineThreshold)
+	if err != nil {
+		return Config{}, err
+	}
+	usagePruneInterval, err := getEnvDuration("USAGE_PRUNE_INTERVAL", time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+	usageRetentionDays, err := getEnvInt("USAGE_RETENTION_DAYS", 365)
+	if err != nil {
+		return Config{}, err
+	}
+	displayTimezone := getEnv("DISPLAY_TIMEZONE", "Asia/Shanghai")
+	location, err := time.LoadLocation(displayTimezone)
+	if err != nil {
+		return Config{}, fmt.Errorf("DISPLAY_TIMEZONE: invalid IANA timezone %q: %w", displayTimezone, err)
+	}
 
 	cfg := Config{
-		Addr:             getEnv("ADDR", ":8080"),
-		SQLitePath:       getEnv("SQLITE_PATH", "cyberstalk.db"),
-		OfflineThreshold: offlineThreshold,
-		ScanInterval:     scanInterval,
+		Addr:               getEnv("ADDR", ":8080"),
+		SQLitePath:         getEnv("SQLITE_PATH", "cyberstalk.db"),
+		OfflineThreshold:   offlineThreshold,
+		ScanInterval:       scanInterval,
+		UsageRetentionDays: usageRetentionDays,
+		UsagePruneInterval: usagePruneInterval,
+		UsageMaxGap:        usageMaxGap,
+		DisplayTimezone:    displayTimezone,
+		Location:           location,
 	}
 
 	if strings.TrimSpace(cfg.Addr) == "" {
@@ -61,6 +103,15 @@ func Load() (Config, error) {
 	}
 	if cfg.ScanInterval <= 0 {
 		return Config{}, fmt.Errorf("SCAN_INTERVAL must be positive, got %s", cfg.ScanInterval)
+	}
+	if cfg.UsageRetentionDays <= 0 {
+		return Config{}, fmt.Errorf("USAGE_RETENTION_DAYS must be positive, got %d", cfg.UsageRetentionDays)
+	}
+	if cfg.UsagePruneInterval <= 0 {
+		return Config{}, fmt.Errorf("USAGE_PRUNE_INTERVAL must be positive, got %s", cfg.UsagePruneInterval)
+	}
+	if cfg.UsageMaxGap <= 0 {
+		return Config{}, fmt.Errorf("USAGE_MAX_GAP must be positive, got %s", cfg.UsageMaxGap)
 	}
 	return cfg, nil
 }
@@ -89,4 +140,19 @@ func getEnvDuration(key string, def time.Duration) (time.Duration, error) {
 		return time.Duration(secs) * time.Second, nil
 	}
 	return 0, fmt.Errorf("%s: invalid duration %q (examples: 90s, 1m30s, or bare seconds 90)", key, v)
+}
+
+// getEnvInt reads an integer-valued env var. Unset or blank returns def; an
+// unparseable value is an error rather than a silent fallback, for the same
+// reason as getEnvDuration — a typo'd config must fail loud.
+func getEnvInt(key string, def int) (int, error) {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return 0, fmt.Errorf("%s: invalid integer %q", key, v)
+	}
+	return n, nil
 }
