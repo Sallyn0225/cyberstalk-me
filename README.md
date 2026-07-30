@@ -168,7 +168,15 @@ docker compose exec app cyberstalk-server register-device win-desktop "我的台
 | `OFFLINE_THRESHOLD` | `60s` | 设备静默多久后判为离线。接受 Go duration（`90s`、`2m30s`）或纯秒数（`90`） |
 | `SCAN_INTERVAL` | `5s` | 扫描离线设备的间隔，决定「设备静默」到「页面变灰」的最坏延迟 |
 
-compose 额外读两个变量：`HOST_PORT`（宿主机发布端口，默认 `8080`）与 `IMAGE_TAG`（镜像标签，默认 `latest`）。
+compose 还额外读四个变量，它们只影响容器编排、不进服务进程：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `HOST_PORT` | `8080` | 宿主机发布端口 |
+| `IMAGE_TAG` | `latest` | 镜像标签 |
+| `LOG_MAX_SIZE` | `10m` | 单个容器日志文件的大小上限，接受 `k`/`m`/`g` 后缀 |
+| `LOG_MAX_FILE` | `3` | 保留几个轮转文件，超出后丢弃最旧的 |
+
 值填错不会静默降级——比如 `OFFLINE_THRESHOLD` 写了个解析不了的值，服务会在启动时直接报错退出。
 
 ## 放到域名后面
@@ -223,6 +231,15 @@ docker compose ps                 # 含健康检查状态
 docker compose logs -f app        # 结构化 JSON 日志
 docker compose pull && docker compose up -d   # 升级；数据在具名卷里，不会丢
 ```
+
+**磁盘占用**——只有容器日志会随时间增长，已经由 `LOG_MAX_SIZE` × `LOG_MAX_FILE`
+封顶（默认 30 MiB）。数据库不会：`device_state` 每台设备只有一行，新上报覆盖旧的，
+所以 SQLite 的体积取决于设备数量而不是运行时长，没有需要定期清理的历史数据。
+
+> [!NOTE]
+> `logging` 的改动要重建容器才生效（`docker compose up -d` 会自动重建）。
+> 已经攒下来的旧日志不会被追溯清理，需要的话 `docker compose down && docker compose up -d`
+> 重建容器即可丢弃——数据库在具名卷里，不受影响。
 
 **备份**——只有一个 SQLite 文件要备份。为了拿到一致快照，先停再拷：
 

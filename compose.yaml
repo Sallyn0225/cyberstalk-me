@@ -25,6 +25,16 @@ services:
       # The SQLite database is the only persistent state. A named volume keeps
       # it out of reach of host permission quirks and survives `down` + `up`.
       - cyberstalk-data:/data
+    logging:
+      # The server logs to stdout, so the container log file is the only thing
+      # here that grows without bound — json-file has no size limit by default
+      # and a long-running deployment can fill the disk with it. Capping it is
+      # a retention policy, not a debugging tradeoff: max-file rotations of
+      # max-size each are kept, older ones are dropped.
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
     healthcheck:
       # /api/v1/snapshot rather than / — it reads the store, so a green check
       # means "serving and the database is readable", not just "files exist".
