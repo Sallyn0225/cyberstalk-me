@@ -55,6 +55,29 @@ keep the deployment coherent:
   deployment with no `.env` file starts correctly. `.env.example` documents the
   knobs; it is not a prerequisite.
 
+The screen-time statistics added four variables, all with inline compose
+defaults (established 2026-07-30 in `07-30-screen-time-server`):
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DISPLAY_TIMEZONE` | `Asia/Shanghai` | IANA name; validated with `time.LoadLocation` at startup, an unknown name stops the server |
+| `USAGE_RETENTION_DAYS` | `365` | Positive integer. ~12 KB per device per day |
+| `USAGE_PRUNE_INTERVAL` | `1h` | The retention sweep also runs once at startup, so a frequently-restarted server still prunes |
+| `USAGE_MAX_GAP` | empty → `OFFLINE_THRESHOLD` | Empty in compose on purpose: the server resolves the default, so there is nothing to keep in sync |
+
+### `time/tzdata` is embedded, and that is a deployment constraint
+
+`server/cmd/server/main.go` imports `_ "time/tzdata"`. This is not a
+convenience — **alpine ships no tzdata**, so without it
+`time.LoadLocation("Asia/Shanghai")` fails and the server does not start, while
+every local build and CI job stays green. The failure only appears in the
+container.
+
+The obvious fix — `RUN apk add tzdata` in the runtime stage — is exactly what
+the zero-`RUN` constraint above forbids. Embedding costs ~450 KB of binary and
+removes the whole failure path, so **do not solve a timezone problem in the
+Dockerfile.**
+
 The health check targets `GET /api/v1/snapshot`, not `/`. The latter only proves
 static files are being served; the former also reads the store, so a green check
 means "serving *and* the database is readable". Do not add a dedicated health

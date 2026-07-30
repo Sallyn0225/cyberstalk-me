@@ -36,7 +36,25 @@ CREATE TABLE IF NOT EXISTS device_state (
     reported_at      TEXT NOT NULL,     -- RFC 3339 UTC, client clock
     last_seen_at     TEXT NOT NULL      -- RFC 3339 UTC, server clock
 );
+
+CREATE TABLE IF NOT EXISTS usage_bucket (
+    device_id   TEXT    NOT NULL REFERENCES devices(device_id),
+    hour_start  TEXT    NOT NULL,       -- RFC 3339 UTC, truncated to the hour
+    state       TEXT    NOT NULL,       -- 'active' | 'idle' | 'locked'
+    app         TEXT    NOT NULL,
+    description TEXT    NOT NULL,
+    seconds     INTEGER NOT NULL,
+    PRIMARY KEY (device_id, hour_start, state, app, description)
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_bucket_hour_start
+    ON usage_bucket(hour_start);
 ```
+
+`usage_bucket` needs its own index because the primary key leads with
+`device_id`: retention pruning (`WHERE hour_start < ?`) cannot use it. Missing
+that index costs nothing functionally and everything after a few months of
+accumulation.
 
 ---
 
@@ -45,8 +63,14 @@ CREATE TABLE IF NOT EXISTS device_state (
 - Naming: `snake_case` tables and columns, singular column names, `_at` suffix
   for timestamps. Timestamps are stored as **RFC 3339 strings in UTC**.
 - `device_state` is **latest-state-only**: every report is an upsert
-  (`INSERT ... ON CONFLICT(device_id) DO UPDATE`). Never accumulate history
-  rows — this is a product decision (no activity history is retained).
+  (`INSERT ... ON CONFLICT(device_id) DO UPDATE`). Never accumulate rows there.
+- `usage_bucket` is the one table that **accumulates on purpose**: an aggregate
+  of "device D spent N seconds in state S on app A doing D' during UTC hour H",
+  upserted additively (`DO UPDATE SET seconds = seconds + excluded.seconds`) and
+  bounded by `USAGE_RETENTION_DAYS` via `PruneUsage`.
+  **Raw reports are still never retained** — that product decision is intact.
+  There is no row anywhere from which a single report can be reconstructed, and
+  adding one needs a product decision, not just a schema change.
 - Tokens are stored **only as SHA-256 hashes**, never plaintext.
 - `last_report_json` stores the already-sanitized payload verbatim. The store
   layer must never receive raw window titles; sanitization happens on devices.
