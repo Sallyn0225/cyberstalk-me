@@ -198,3 +198,54 @@
 - 只剩 Android 客户端子任务（07-28-client-android，仍在 planning），父任务 4/5
 - vps.md 里那个弱密码仍开着 SSH 密码登录且已出现在会话记录中，建议轮换并关掉 PasswordAuthentication
 - 验证期发现 docker pull --platform 在本地已有同 tag 时不重新拉、inspect 仍报旧架构；验架构须按 digest 拉。已写进 spec
+
+
+## Session 2: 服务端时长归因与聚合 API
+
+**Date**: 2026-07-30
+**Task**: 服务端时长归因与聚合 API
+**Branch**: `main`
+
+### Summary
+
+把每次上报之间的时间差按小时累加落库，并开一个公开只读的聚合查询接口。13 条 AC 全过，含容器内实测 tzdata。纯增量：report/snapshot/stream 的既有语义与响应体一字未改。
+
+### Main Changes
+
+- 新增纯逻辑包 server/internal/usage（零 I/O，不 import store）。Attribute 把区间归给"较早那次上报"描述的活动——归给新上报的话总时长仍然对得上，但归属整体偏移一个上报间隔，切换越频繁越明显，且从 UI 上看不出来。这是整个功能最容易错且最难发现的一处，所以先写它的表驱动测试再往下做
+- 亚秒截断放在拆分之前而不是之后：先把两个端点各自截到整秒再按整点拆，误差就是每次上报最多丢 1s；若按每个小时段各自截断，13:59:55.5→14:00:05.5 会报 9s 而不是 10s
+- usage_bucket 是这个库里第一张有意累加的表，additive upsert + USAGE_RETENTION_DAYS 兜住。hour_start 单独建索引不是可选项——主键以 device_id 开头，清理用的 WHERE hour_start < ? 走不到它，缺了功能全对但几个月后才慢下来
+- 归因插在 UpsertState 之前（此时库里还是上一次的观测），且任何失败只 slog.Error 绝不 return。判据是 GetState 返回的 LastSeenAt.IsZero() 而非 error——"已注册但从未上报"返回的是零值且 err == nil
+- main.go 内嵌 time/tzdata。这是承重的：alpine 不带 tzdata，少了它本地全绿、CI 全绿、一进容器就起不来。Dockerfile 运行阶段有零 RUN 的硬约束（加 apk add tzdata 会把 QEMU 拖进多架构构建），所以只能进二进制，约 +450KB
+- USAGE_MAX_GAP 默认跟随 OFFLINE_THRESHOLD，必须在两者都解析完之后再定——否则默认值恒为 0，所有归因被当成断线空洞丢弃，功能静默失效。config_test 专门钉住这个顺序
+- 三处偏离父 design：store 行不 join 设备身份、Aggregate 显式收 devices 列表、清理在启动时先跑一次。前两条让"从未上报的设备不出现"成为结构上的必然而非一句要记得写的过滤；第三条是因为重启比 1h 更频繁的部署原本永远不会真正清理
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `156c169` | (see git log) |
+| `ede74ab` | (see git log) |
+| `cb6b76c` | (see git log) |
+| `5366e7f` | (see git log) |
+| `7c755d6` | (see git log) |
+| `8bb4ed9` | (see git log) |
+| `ec2ba41` | (see git log) |
+| `cc13cb5` | (see git log) |
+
+### Testing
+
+- [OK] CGO_ENABLED=1 go test -race ./server/... ./shared/... 全绿。为 AC2.12 专门写了一个让 1ms 间隔的清理 goroutine 与 50 次写入真并发的测试，顺带覆盖 ctx 取消后能退出
+- [OK] AC2.8 按 spec 要求不 mock store，改用真实 :memory: store 上 DROP TABLE usage_bucket 制造精准故障：POST /report 仍 204、SSE 仍有事件，且另断言 UpsertState 确实生效（否则 204 可能是别的原因）
+- [OK] AC2.13 本机 Docker 实测：容器内 GET /api/v1/usage 返回 timezone Asia/Shanghai 与 from 2026-07-29T16:00:00Z（+08 本地零点），而同一容器里 /usr/share/zoneinfo 不存在——这才证明是内嵌库在起作用而非镜像自带。另验 DISPLAY_TIMEZONE=Not/AZone 与 USAGE_RETENTION_DAYS=0 均以可读错误退出码 1 停住。测完 down -v 清干净
+- [OK] AC2.1-AC2.5 是 handler 层用假时钟连续 POST /report 实测的（锁屏用的是实测过的真实形态 locked=true 且 idle=false）。真机链路的复验属父任务，要等客户端子任务交付 Locked
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 07-30-screen-time-web 是父任务剩下的最后一个子任务，可直接照 shared/contract.go 的新类型镜像 web/src/types/contract.ts
+- design.md §11 里 frontend/state-management.md 与 README.md 两项刻意留给 web 子任务：它们描述的是用户可见面，而这一面此刻还不存在
+- VPS 弱密码 + SSH 密码登录仍未处理，这是 07-30-deploy-docker-cicd 之后第二次记录。原先的 vps.md 已不在仓库，连接信息现只存在于仓库外的 memory/vps-access.md
