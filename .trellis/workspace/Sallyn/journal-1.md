@@ -294,3 +294,40 @@
 - 父任务 07-30-screen-time 的 15 条 AC 一条未勾，AC1-AC6/AC14/AC15 需要 Windows 客户端真机连续跑一段时间才能验（跨整点拆分、超 maxGap 不计入、锁屏归类、诱饵标题复验），这是父任务收尾的唯一剩余工作
 - Radix Tabs 会卸载非活动面板，切走再回来窗口/设备选择回到默认。符合 tab 局部状态的设定，若要记住选择需把两个 state 提到 App
 - VPS 弱密码 + SSH 密码登录仍未处理，这是第三次记录
+
+
+## Session 4: 父任务集成验收（07-30-screen-time）
+
+**Date**: 2026-07-30
+**Task**: 父任务集成验收（07-30-screen-time）
+**Branch**: `main`
+
+### Summary
+
+三个子任务已交付归档，父任务做集成验收：本机 Windows 11 Enterprise 物理机 + docker 容器服务端 + 设备 e2e-win 逐条实测 15 条 AC 全通过。验收发现并修复 lockapp.exe 锁屏检测失效 bug。
+
+### Main Changes
+
+- 集成验收发现：本机 Win+L 后前台是 lockapp.exe（非「无前台窗口」），原 process=="" 检测不触发，锁屏被误记为某个应用活跃（AC5 失败）。用一次性 diaglock 诊断（直接调 collect.Collect() 打印 raw_process）定性，验完即删。
+- 修复 client-windows/internal/collect：识别 lockapp.exe/logonui.exe 为锁屏，置 Process="" 走 locked 分支；mapping 保持纯净仍只认 ""。trellis-check 复核把包级 map 改成 switch（quality-guidelines 禁包级可变状态）。新增 collect_windows_test.go。
+- spec 更新：cross-layer-thinking-guide 补第二台机器 lockapp.exe 案例；design §2.1/§4.2 Locked 语义拓宽、stateOf 注释更正 idle_seconds=0 机型相关；prd R1.2 + 15 条 AC 全勾附证据；implement 勾选。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `52f3533` | (see git log) |
+
+### Testing
+
+- [OK] 全量门禁绿：gofmt/vet/test/race(server+shared+client)/linux build/windows build/web lint/typecheck/vitest(46)/build/embed 新鲜度。
+- [OK] 真机 e2e 15/15 AC：AC1/5 锁屏（修复后）、AC2 多应用、AC3 断线空洞不归因、AC4 挂机、AC6 跨小时、AC7 公开、AC8 窗口切换、AC9 求和、AC10 保留期清理、AC11 非法参数、AC13 tzdata、AC14 诱饵四处 0 命中、AC15 SSE 跨 tab 不重建。详见 prd.md AC 清单。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- VPS 弱密码 + SSH 密码登录仍未处理（第四次记录）。
+- Android 客户端子任务（07-28-client-android，planning）。

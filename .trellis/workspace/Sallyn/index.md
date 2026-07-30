@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 3
+- **Total Sessions**: 4
 - **Last Active**: 2026-07-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~296 | Active |
+| `journal-1.md` | ~333 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 4 | 2026-07-30 | 父任务集成验收（07-30-screen-time） | `52f3533` | `main` |
 | 3 | 2026-07-30 | 前端屏幕使用时间视图（07-30-screen-time-web） | `b73c7dc`, `484058c` | `main` |
 | 2 | 2026-07-30 | 服务端时长归因与聚合 API | `156c169`, `ede74ab`, `cb6b76c`, `5366e7f`, `7c755d6`, `8bb4ed9`, `ec2ba41`, `cc13cb5` | `main` |
 | 1 | 2026-07-30 | 后端 Docker 化与 CI/CD 交付 | `407231e`, `5acbf47`, `46f5e42`, `f5307e7`, `5c4be2b`, `0d4831e`, `6b19d14` | `main` |
