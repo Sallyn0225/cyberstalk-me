@@ -1,8 +1,9 @@
 // Package store is the SQLite persistence layer.
 //
-// It owns two tables (devices, device_state) and exposes only what the
-// rest of the server needs: device registration, token-hash lookup, and
-// latest-state upsert/list/get. All methods take context.Context first and
+// It owns three tables (devices, device_state, usage_bucket) and exposes what the
+// rest of the server needs: device registration, token-hash lookup,
+// latest-state upsert/list/get, and hourly usage accumulate/query/prune.
+// All methods take context.Context first and
 // use the QueryRowContext/ExecContext variants. Tokens are stored only as
 // SHA-256 hashes; the store never receives or persists raw device tokens or
 // raw window titles.
@@ -302,6 +303,120 @@ func (s *Store) ListDeviceStates(ctx context.Context) ([]shared.DeviceState, err
 		}
 	}
 	return out, nil
+}
+
+// UsageDelta is one bucket increment produced by the usage package. store
+// keeps its own struct rather than importing usage, preserving the one-way
+// dependency (api -> usage, api -> store; store -/-> usage).
+type UsageDelta struct {
+	HourStart   time.Time // UTC, truncated to the hour
+	State       string    // 'active' | 'idle' | 'locked'
+	App         string
+	Description string
+	Seconds     int
+}
+
+// AddUsage accumulates deltas in one transaction. Re-running with the same
+// deltas adds again — it is additive, not idempotent; the caller must pass
+// each interval exactly once.
+//
+// One transaction for the whole batch matters because an interval that
+// crosses an hour boundary produces two rows, and SQLite has a single writer:
+// two separate statements would take the write lock twice per report.
+func (s *Store) AddUsage(ctx context.Context, deviceID string, deltas []UsageDelta) error {
+	if len(deltas) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin add usage for %s: %w", deviceID, err)
+	}
+	// Rollback is a no-op once Commit has succeeded.
+	defer func() { _ = tx.Rollback() }()
+
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO usage_bucket (device_id, hour_start, state, app, description, seconds)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(device_id, hour_start, state, app, description)
+		DO UPDATE SET seconds = seconds + excluded.seconds`)
+	if err != nil {
+		return fmt.Errorf("prepare add usage for %s: %w", deviceID, err)
+	}
+	defer stmt.Close()
+
+	for _, d := range deltas {
+		if _, err := stmt.ExecContext(ctx, deviceID,
+			d.HourStart.UTC().Format(time.RFC3339), d.State, d.App, d.Description, d.Seconds); err != nil {
+			return fmt.Errorf("add usage for %s: %w", deviceID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit add usage for %s: %w", deviceID, err)
+	}
+	return nil
+}
+
+// UsageRow is one stored bucket. Device name and type are deliberately not
+// joined in: the caller already lists devices (to include ones with no
+// buckets in the window at all) and that list is the single source of device
+// identity.
+type UsageRow struct {
+	DeviceID    string
+	HourStart   time.Time
+	State       string
+	App         string
+	Description string
+	Seconds     int
+}
+
+// QueryUsage returns every bucket in [fromUTC, toUTC) for all devices. Bounds
+// compare as RFC 3339 UTC strings, whose lexical order is chronological, so
+// the range scan uses idx_usage_bucket_hour_start.
+func (s *Store) QueryUsage(ctx context.Context, fromUTC, toUTC time.Time) ([]UsageRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT device_id, hour_start, state, app, description, seconds
+		FROM usage_bucket
+		WHERE hour_start >= ? AND hour_start < ?
+		ORDER BY device_id, hour_start`,
+		fromUTC.UTC().Format(time.RFC3339), toUTC.UTC().Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("query usage: %w", err)
+	}
+	defer rows.Close()
+	var out []UsageRow
+	for rows.Next() {
+		var u UsageRow
+		var hourStart string
+		if err := rows.Scan(&u.DeviceID, &hourStart, &u.State, &u.App, &u.Description, &u.Seconds); err != nil {
+			return nil, fmt.Errorf("scan usage row: %w", err)
+		}
+		t, parseErr := time.Parse(time.RFC3339, hourStart)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse hour_start for %s: %w", u.DeviceID, parseErr)
+		}
+		u.HourStart = t
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate usage rows: %w", err)
+	}
+	return out, nil
+}
+
+// PruneUsage deletes buckets older than beforeUTC and returns the row count.
+// It is the retention policy for the only table that grows.
+func (s *Store) PruneUsage(ctx context.Context, beforeUTC time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `
+		DELETE FROM usage_bucket
+		WHERE hour_start < ?`, beforeUTC.UTC().Format(time.RFC3339))
+	if err != nil {
+		return 0, fmt.Errorf("prune usage before %s: %w", beforeUTC.UTC().Format(time.RFC3339), err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected pruning usage: %w", err)
+	}
+	return n, nil
 }
 
 // SetLastSeen updates last_seen_at for id without changing the report

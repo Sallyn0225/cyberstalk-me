@@ -195,6 +195,189 @@ func TestSetLastSeenUpdatesRow(t *testing.T) {
 	}
 }
 
+// usageHour is a UTC hour-aligned timestamp for the usage tests.
+func usageHour(hour int) time.Time {
+	return time.Date(2026, 7, 30, hour, 0, 0, 0, time.UTC)
+}
+
+// findUsage returns the seconds stored for one bucket key, and whether the
+// bucket exists at all.
+func findUsage(rows []UsageRow, deviceID string, hour int, state, app, description string) (int, bool) {
+	for _, r := range rows {
+		if r.DeviceID == deviceID && r.HourStart.Equal(usageHour(hour)) &&
+			r.State == state && r.App == app && r.Description == description {
+			return r.Seconds, true
+		}
+	}
+	return 0, false
+}
+
+func TestAddUsageAccumulatesInsteadOfOverwriting(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.RegisterDevice(ctx, "usage-add", "PC", "windows", sha256hex("t-usage-add"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	delta := UsageDelta{HourStart: usageHour(13), State: "active", App: "Code", Description: "写代码", Seconds: 10}
+	if err := s.AddUsage(ctx, "usage-add", []UsageDelta{delta}); err != nil {
+		t.Fatalf("first add: %v", err)
+	}
+	// The same key again must add, not replace: two reports in the same hour
+	// on the same activity are two separate stretches of time.
+	if err := s.AddUsage(ctx, "usage-add", []UsageDelta{delta}); err != nil {
+		t.Fatalf("second add: %v", err)
+	}
+	// A different description is a different bucket.
+	other := delta
+	other.Description = "看文档"
+	other.Seconds = 4
+	if err := s.AddUsage(ctx, "usage-add", []UsageDelta{other}); err != nil {
+		t.Fatalf("third add: %v", err)
+	}
+
+	rows, err := s.QueryUsage(ctx, usageHour(0), usageHour(23))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	if got, ok := findUsage(rows, "usage-add", 13, "active", "Code", "写代码"); !ok || got != 20 {
+		t.Fatalf("accumulated seconds = %d (found %v), want 20", got, ok)
+	}
+	if got, ok := findUsage(rows, "usage-add", 13, "active", "Code", "看文档"); !ok || got != 4 {
+		t.Fatalf("second description seconds = %d (found %v), want 4", got, ok)
+	}
+}
+
+func TestAddUsageEmptyIsNoOp(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.AddUsage(context.Background(), "nobody", nil); err != nil {
+		t.Fatalf("empty add should not error: %v", err)
+	}
+}
+
+func TestAddUsageWritesAllBucketsOfOneBatch(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.RegisterDevice(ctx, "usage-batch", "PC", "windows", sha256hex("t-usage-batch"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	// What an hour-crossing interval produces: one batch, two hours.
+	batch := []UsageDelta{
+		{HourStart: usageHour(13), State: "active", App: "Code", Description: "写代码", Seconds: 5},
+		{HourStart: usageHour(14), State: "active", App: "Code", Description: "写代码", Seconds: 5},
+	}
+	if err := s.AddUsage(ctx, "usage-batch", batch); err != nil {
+		t.Fatalf("add batch: %v", err)
+	}
+	rows, err := s.QueryUsage(ctx, usageHour(0), usageHour(23))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	for _, hour := range []int{13, 14} {
+		if got, ok := findUsage(rows, "usage-batch", hour, "active", "Code", "写代码"); !ok || got != 5 {
+			t.Fatalf("hour %d seconds = %d (found %v), want 5", hour, got, ok)
+		}
+	}
+}
+
+func TestQueryUsageRangeIsHalfOpen(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.RegisterDevice(ctx, "usage-range", "PC", "windows", sha256hex("t-usage-range"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	for _, hour := range []int{12, 13, 14} {
+		d := UsageDelta{HourStart: usageHour(hour), State: "active", App: "Code", Description: "写代码", Seconds: 60}
+		if err := s.AddUsage(ctx, "usage-range", []UsageDelta{d}); err != nil {
+			t.Fatalf("add hour %d: %v", hour, err)
+		}
+	}
+
+	// [13:00, 14:00): the bucket equal to from is in, the one equal to to is out.
+	rows, err := s.QueryUsage(ctx, usageHour(13), usageHour(14))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1: %+v", len(rows), rows)
+	}
+	if !rows[0].HourStart.Equal(usageHour(13)) {
+		t.Fatalf("row hour_start = %s, want %s", rows[0].HourStart, usageHour(13))
+	}
+	if rows[0].App != "Code" || rows[0].Description != "写代码" || rows[0].Seconds != 60 || rows[0].State != "active" {
+		t.Fatalf("unexpected row: %+v", rows[0])
+	}
+}
+
+func TestQueryUsageSeparatesDevices(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	for _, id := range []string{"usage-iso-a", "usage-iso-b"} {
+		if err := s.RegisterDevice(ctx, id, "PC", "windows", sha256hex("t-"+id), time.Now().UTC()); err != nil {
+			t.Fatalf("register %s: %v", id, err)
+		}
+	}
+	a := UsageDelta{HourStart: usageHour(13), State: "active", App: "Code", Description: "写代码", Seconds: 10}
+	b := UsageDelta{HourStart: usageHour(13), State: "active", App: "Code", Description: "写代码", Seconds: 30}
+	if err := s.AddUsage(ctx, "usage-iso-a", []UsageDelta{a}); err != nil {
+		t.Fatalf("add a: %v", err)
+	}
+	if err := s.AddUsage(ctx, "usage-iso-b", []UsageDelta{b}); err != nil {
+		t.Fatalf("add b: %v", err)
+	}
+
+	rows, err := s.QueryUsage(ctx, usageHour(13), usageHour(14))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	// Same bucket key on two devices must stay two rows — the device is part
+	// of the primary key.
+	if got, ok := findUsage(rows, "usage-iso-a", 13, "active", "Code", "写代码"); !ok || got != 10 {
+		t.Fatalf("device a seconds = %d (found %v), want 10", got, ok)
+	}
+	if got, ok := findUsage(rows, "usage-iso-b", 13, "active", "Code", "写代码"); !ok || got != 30 {
+		t.Fatalf("device b seconds = %d (found %v), want 30", got, ok)
+	}
+}
+
+func TestPruneUsageDeletesOnlyOlderBuckets(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.RegisterDevice(ctx, "usage-prune", "PC", "windows", sha256hex("t-usage-prune"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	for _, hour := range []int{10, 11, 13} {
+		d := UsageDelta{HourStart: usageHour(hour), State: "active", App: "Code", Description: "写代码", Seconds: 60}
+		if err := s.AddUsage(ctx, "usage-prune", []UsageDelta{d}); err != nil {
+			t.Fatalf("add hour %d: %v", hour, err)
+		}
+	}
+
+	n, err := s.PruneUsage(ctx, usageHour(13))
+	if err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("pruned %d rows, want 2", n)
+	}
+	rows, err := s.QueryUsage(ctx, usageHour(0), usageHour(23))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	if len(rows) != 1 || !rows[0].HourStart.Equal(usageHour(13)) {
+		t.Fatalf("remaining rows = %+v, want only the 13:00 bucket", rows)
+	}
+
+	// Pruning again removes nothing and must not error.
+	n, err = s.PruneUsage(ctx, usageHour(13))
+	if err != nil {
+		t.Fatalf("second prune: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("second prune removed %d rows, want 0", n)
+	}
+}
+
 func ptrInt(v int) *int { return &v }
 
 // jsonMarshal marshals p for test payloads. json.Marshal of a ReportPayload
