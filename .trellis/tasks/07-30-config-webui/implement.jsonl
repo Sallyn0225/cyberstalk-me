@@ -1,0 +1,16 @@
+{"file": ".trellis/tasks/07-30-config-webui/prd.md", "reason": "本任务需求（R1–R7）、决策（D1–D7）与验收标准（AC1–AC10）的唯一出处"}
+{"file": ".trellis/tasks/07-30-config-webui/design.md", "reason": "包边界与 build tag 分层（§3）、隐私边界六条硬约束（§2）、API 契约（§4）、ReplaceFileW 写回方案（§6.2）"}
+{"file": ".trellis/tasks/07-30-config-webui/implement.md", "reason": "阶段 0–6 的执行顺序、每阶段门禁与回滚点"}
+{"file": ".trellis/spec/backend/index.md", "reason": "脱敏红线：原始窗口标题不进日志/存储/上报契约。本任务新增的本地回环例外必须在此框架内收窄"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "client-windows 在 go.work 中的位置与包边界，新增 internal/setup 需遵循"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "config.Validate 改为返回结构化错误时的包装规范；HTTP handler 错误形状"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "新增 HTTP 访问日志绝不能记录 body（含原始标题与 token）"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Go 门禁清单与 Win32 层单测豁免边界——决定哪些新包必须单测、哪些可豁免"}
+{"file": ".trellis/spec/backend/deployment-guidelines.md", "reason": "CI 门禁现状，新增 webui job 与 windows-latest 测试 job 时对齐"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "新 webui 复用 web/ 的设计语言：shadcn 优先、Tailwind、lucide、a11y"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "webui/src 的布局与命名，与 web/ 保持同构"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端 lint/type 门禁与依赖策略，新 workspace 需照同一套"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "webui 的类型需镜像 Go 侧结构（catalog / draft config / preview），与后端同任务同步"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "强约束：预览与校验必须复用 mapping.Resolve 与 config.Validate，禁止出现第二份匹配/校验逻辑"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "config 结构变更需同步核对 mapping.Options、YAML 写回与前端表单三处"}
+{"file": ".trellis/tasks/archive/2026-07/07-28-client-windows/design.md", "reason": "client-windows 现有分层与 collect/mapping 的设计取舍，本任务在其上做纯增量"}

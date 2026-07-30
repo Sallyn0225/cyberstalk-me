@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/07-30-config-webui/prd.md", "reason": "验收标准 AC1–AC10 逐条核对，尤其 AC1（诱饵标题零命中）与 AC8（零出站）"}
+{"file": ".trellis/tasks/07-30-config-webui/design.md", "reason": "核对隐私边界六条硬约束（§2）是否逐条落地；核对 internal/setup 主体未 import collect（§3）"}
+{"file": ".trellis/spec/backend/index.md", "reason": "安全关键：确认脱敏红线未被本任务扩大——回环例外之外无任何新泄露路径"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "抽查新增日志：无原始标题、无 token、无请求 body"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "门禁核对：gofmt / vet / test -race / GOOS=windows build，以及单测豁免范围是否被滥用"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对 config.Validate 结构化错误未破坏 Load 的既有错误文案"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "webui 的 lint / typecheck / vitest / build 门禁与依赖策略核对"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对危险区（expose_title）与实时预览条的可访问性与交互摩擦是否达标（AC9）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "重点排查：是否出现了第二份匹配逻辑或第二套校验规则（R3.5 / AC6 的命门）"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层核对 config 结构 → YAML 写回 → 前端表单 三处是否同步"}
+{"file": ".trellis/spec/guides/index.md", "reason": "交叉评审的误报核验规则与验证纪律"}
+{"file": ".trellis/spec/backend/deployment-guidelines.md", "reason": "核对 CI 新增的 webui job 与 windows-latest 测试 job 是否与既有门禁同构且真的生效"}
