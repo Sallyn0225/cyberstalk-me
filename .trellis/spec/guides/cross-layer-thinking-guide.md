@@ -100,6 +100,34 @@ create one owner for:
 
 Rendering code may format fields, but it must not redefine the payload contract.
 
+### Mistake 5: Inferring Structured State From A User-Configured String
+
+**Bad**: The server decides "is this device locked?" by matching `activity.app`
+against a known label. That label is `locked_app` from the agent's own
+`config.yaml` — it differs per deployment, is localized, and can collide with a
+real app of the same name.
+
+**Good**: The producer sends the condition as its own field (`activity.locked`),
+and the consumer branches on that.
+
+**Rule**: A string a user configures is **display data, never control data**. If
+a consumer must branch on a condition, the producer sends that condition as an
+explicit field. Adding one is cheap; guessing is unfixable downstream.
+
+Corollary for the degradation path: when the new field is absent (an older
+producer), work out what the consumer *actually* concludes — do not assume the
+remaining fields happen to describe the same situation. Verify the combination
+on a real device instead of reasoning about it.
+
+**Real-world example**: `shared.Activity.Locked` was added so the server could
+tell a lock screen from an app. The plan assumed the pre-field degradation was
+safe, on the grounds that "a locked screen has no keyboard input, so `idle` is
+already true". A `-dry-run` sampling loop across a real lock (2026-07-30) showed
+`idle: false, idle_seconds: 0` — Windows stops advancing `GetLastInputInfo`
+while locked. So an old agent's locked time reads as *active*, not idle: the
+exact outcome the requirement had ruled out. The assumption survived PRD, design
+and review, and only died on contact with a real machine.
+
 ---
 
 ## Checklist for Cross-Layer Features
