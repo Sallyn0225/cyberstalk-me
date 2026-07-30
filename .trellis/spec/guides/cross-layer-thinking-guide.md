@@ -128,6 +128,22 @@ while locked. So an old agent's locked time reads as *active*, not idle: the
 exact outcome the requirement had ruled out. The assumption survived PRD, design
 and review, and only died on contact with a real machine.
 
+A *second* real machine (2026-07-30, the parent integration acceptance) then
+broke the fix's own assumption. The `Locked` field is set when `collect` sees no
+foreground window (`GetForegroundWindow() == 0`). On a Windows 11 Enterprise
+desktop, Win+L instead made `lockapp.exe` the foreground window — a readable,
+non-elevated process — so `collect` reported the default app (`某个应用`) with
+`locked: false`, and `idle_seconds` advanced normally. The entire lock duration
+was miscounted as app usage; AC5 failed on that machine. The repair was not
+another contract field but recognizing the lock-screen process (`lockapp.exe`,
+`logonui.exe`) inside `collect` and normalizing it to the no-foreground case
+before `mapping` ever runs. Lesson: "verify on a real device" means on more than
+one — a condition keyed on a Win32 signal (`GetForegroundWindow`) is not
+portable across Windows builds, and a `process == ""` check alone is not a
+reliable proxy for "the user is locked out". The `Locked` boolean is still the
+right contract (the server never inspects process names); only the producer's
+*trigger* for setting it had to widen.
+
 ---
 
 ## Checklist for Cross-Layer Features

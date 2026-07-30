@@ -37,10 +37,15 @@ type Activity struct {
 	Description string `json:"description"`
 	Idle        bool   `json:"idle"`
 	IdleSeconds int    `json:"idle_seconds"`
-	// Locked reports that there was no foreground window at all (lock screen
-	// or session switch). It is a structured flag rather than something the
-	// server infers from App, because App is a user-configured string
-	// (locked_app in the agent config) that the server cannot match on.
+	// Locked reports that the session is locked or switched. The agent sets it
+	// when there is no foreground window at all, OR when the foreground window
+	// is the Windows lock/logon screen (lockapp.exe / logonui.exe) — on some
+	// Windows builds the lock screen is a real foreground window, not an empty
+	// desktop, so the "no foreground window" signal alone misses it (found
+	// 2026-07-30 on a Windows 11 Enterprise machine during integration). It is
+	// a structured flag rather than something the server infers from App,
+	// because App is a user-configured string (locked_app in the agent config)
+	// that the server cannot match on.
 	Locked bool `json:"locked"`
 }
 ```
@@ -285,9 +290,12 @@ func Attribute(observed shared.Activity, from, to time.Time, maxGap time.Duratio
 func stateOf(a shared.Activity) string {
 	switch {
 	case a.Locked:
-		// Checked first because Idle cannot be trusted here: Windows reports
-		// idle_seconds 0 while the screen is locked (measured 2026-07-30), so
-		// a locked report usually arrives with Idle == false.
+		// Checked first because Idle cannot be trusted here. On the machine
+		// first measured (2026-07-30) Windows stops advancing GetLastInputInfo
+		// while locked, so a locked report arrives with Idle == false; on
+		// another Windows 11 build (2026-07-30 integration) idle_seconds
+		// advances normally during lock. Either way Locked is authoritative
+		// because the agent sets it from the foreground window, not from idle.
 		return StateLocked
 	case a.Idle:
 		return StateIdle

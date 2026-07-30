@@ -84,6 +84,22 @@ func (s Snapshot) Title() string {
 	return s.title()
 }
 
+// isLockScreenProcess reports whether proc (a lowercased executable base name,
+// as produced by foregroundProcess) is a Windows lock/logon screen process.
+//
+// The set is small on purpose: only Windows system processes that exist solely
+// to render the lock screen or sign-in prompt, so a user app can never trip it.
+// lockapp.exe is the Windows 11 lock screen (found 2026-07-30 on a machine
+// where Win+L made it the foreground window instead of returning HWND 0);
+// logonui.exe covers the sign-in prompt the lock screen dismisses to.
+func isLockScreenProcess(proc string) bool {
+	switch proc {
+	case "lockapp.exe", "logonui.exe":
+		return true
+	}
+	return false
+}
+
 // Collect takes one snapshot of the current device state.
 func Collect() Snapshot {
 	snap := Snapshot{
@@ -92,7 +108,14 @@ func Collect() Snapshot {
 		Network:     network(),
 	}
 	if hwnd := windows.GetForegroundWindow(); hwnd != 0 {
-		snap.Process = foregroundProcess(hwnd)
+		proc := foregroundProcess(hwnd)
+		if isLockScreenProcess(proc) {
+			// The foreground window is the lock / logon screen, not a user
+			// app. Leave Process empty so mapping.Resolve takes the locked
+			// branch, and do not read the title.
+			return snap
+		}
+		snap.Process = proc
 		snap.title = func() string { return windowText(hwnd) }
 	}
 	return snap

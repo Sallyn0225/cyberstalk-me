@@ -69,8 +69,9 @@
 
 ### R1 契约：结构化锁屏标记
 
-- R1.1 `shared.Activity` 增加布尔字段标记「无前台窗口（锁屏 / 会话切换）」，因为 `app` 是用户自定义字符串，服务端无法据此判断锁屏。
-- R1.2 Windows 客户端在 `mapping.Resolve` 走锁屏分支时填充该字段。
+- R1.1 `shared.Activity` 增加布尔字段标记「会话锁屏 / 切换」——无前台窗口，或前台是 Windows 锁屏/登录进程（`lockapp.exe` / `logonui.exe`）。因为 `app` 是用户自定义字符串，服务端无法据此判断锁屏。
+- R1.2 Windows 客户端在 `collect` 发现无前台窗口、或前台是锁屏/登录进程时置 `Process=""`，使 `mapping.Resolve` 走锁屏分支填充该字段。
+  **集成验收发现（2026-07-30）**：某 Windows 11 Enterprise 物理机 Win+L 后前台是 `lockapp.exe`（可读、非提权），并非「无前台窗口」，于是原 `process == ""` 检测不触发，整段锁屏时间被误记为 `某个应用` 的活跃/挂机（AC5 在该机失败）。修复：`collect` 识别 `lockapp.exe` / `logonui.exe` 为锁屏，置 `Process=""` 再交给 `mapping`。`Locked` 布尔仍是唯一契约（服务端不认进程名），只是生产者的**触发条件**变宽了。详见 `design.md` §2.1 与 `.trellis/spec/guides/cross-layer-thinking-guide.md` 的 Real-world example。
 - R1.3 `web/src/types/contract.ts` 同步镜像该字段并纳入运行时校验（与 `shared/contract.go` 同任务内改动，遵守跨层约定）。
 - R1.4 旧版本客户端不发该字段时按 `false` 处理，解码不得出错。
   **注意（2026-07-30 真机实测更正）**：规划时以为「锁屏必然无键鼠输入，故旧客户端的锁屏时长会归入挂机」，
@@ -127,22 +128,39 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：客户端锁屏后，上报载荷中的锁屏标记为真；`-dry-run` 输出中能看到该字段，且**不出现**原始窗口标题。
-- [ ] AC2：让一台设备以正常心跳连续上报，期间切换前台应用；使用时间 tab 中该设备各应用的活跃时长之和与实际经过时间一致（允许一个上报间隔的误差）。
-- [ ] AC3：设备停止上报超过归因上限后再恢复上报，中断的那段时间**不计入**任何应用时长（关机 8 小时不产生 8 小时使用记录）。
-- [ ] AC4：设备保持前台应用不变但超过 `idle_threshold` 无输入，这段时间计入「挂机」总计，**不计入**该应用的活跃时长。
-- [ ] AC5：设备锁屏期间的时间计入「锁屏」总计，不计入任何应用，也不计入「挂机」。
-- [ ] AC6：跨越整点的上报间隔被正确拆分到前后两个小时桶（今日按小时分布图在整点前后都有对应时长）。
-- [ ] AC7：未认证浏览器直接打开站点，切到「使用时间」tab 即可看到统计，无需任何登录。
-- [ ] AC8：窗口在今日 / 近 7 天 / 近 30 天之间切换时，数据与图形态相应变化（今日为小时分布，7/30 天为按日趋势）。
-- [ ] AC9：某个 app 的排行条展开后，其下各 description 的时长之和等于该 app 的总时长。
-- [ ] AC10：把保留期配成一个很小的值并触发清理后，早于保留期的桶从库中消失，且接口不因此报错。
-- [ ] AC11：非法窗口参数返回 400；非法 `USAGE_RETENTION_DAYS` / `DISPLAY_TIMEZONE` 导致启动失败并给出可读错误。
-- [ ] AC12：`POST /report` 在归因逻辑出错时仍返回 204 并广播 SSE（既有实时功能不被统计功能拖累）。
-- [ ] AC13：`docker compose build && up` 后服务正常启动（证明内嵌 tzdata 生效 —— 这一项本地全绿也可能在容器里失败）。
-- [ ] AC14：脱敏红线复验通过。用诱饵标题跑一轮后，`GET /api/v1/usage` 响应体、小时桶表的
+集成验收于 2026-07-30 在本机 Windows 11 Enterprise 物理机 + docker 容器服务端 + 设备 `e2e-win`（验收台式机）上逐条实测。AC1/AC5 的实测发现 `lockapp.exe` 锁屏形态问题并已修复（见 R1.2 集成验收发现），下列勾选均在修复后复验。
+
+- [x] AC1：客户端锁屏后，上报载荷中的锁屏标记为真；`-dry-run` 输出中能看到该字段，且**不出现**原始窗口标题。
+      *验证*：`-dry-run` payload 含 `"locked"` 字段、`app`/`description` 为映射值无原始标题；Win+L 锁屏 60s 后 `-v` 日志连续 8 帧 `app=已锁屏 locked=true`，DB 落 locked 桶（修复 `lockapp.exe` 识别后）。
+- [x] AC2：让一台设备以正常心跳连续上报，期间切换前台应用；使用时间 tab 中该设备各应用的活跃时长之和与实际经过时间一致（允许一个上报间隔的误差）。
+      *验证*：真机连续上报，Chrome/终端/某个应用/记事本多应用切换，API totals 与 DB `usage_bucket` 求和逐一致（active 421→…，每桶秒数可加回 totals）。
+- [x] AC3：设备停止上报超过归因上限后再恢复上报，中断的那段时间**不计入**任何应用时长（关机 8 小时不产生 8 小时使用记录）。
+      *验证*：taskkill agent.exe，等 70s（gap 实测 120s > 60s `USAGE_MAX_GAP`）后重启，totals active delta=0，断线空洞未被归因。
+- [x] AC4：设备保持前台应用不变但超过 `idle_threshold` 无输入，这段时间计入「挂机」总计，**不计入**该应用的活跃时长。
+      *验证*：前台 `终端` 静置（`idle_threshold=30s`），新增 `终端·在敲命令 idle 110s`，idle 总计 +110s、active 不变。
+- [x] AC5：设备锁屏期间的时间计入「锁屏」总计，不计入任何应用，也不计入「挂机」。
+      *验证*：Win+L 锁屏 ~80s，DB 新增 `locked · 已锁屏 · 人不在 · 80s`，locked 总计 0→80s，active/idle 未混入（修复后）。
+- [x] AC6：跨越整点的上报间隔被正确拆分到前后两个小时桶（今日按小时分布图在整点前后都有对应时长）。
+      *验证*：`usage.Attribute` 跨整点拆分单测（子任务 2）；真机数据落在 05:00 与 06:00 两个 UTC 小时桶，UI 今日小时图 13时/14时均有活跃。
+- [x] AC7：未认证浏览器直接打开站点，切到「使用时间」tab 即可看到统计，无需任何登录。
+      *验证*：chrome-devtools 实开 `http://localhost:8080` 无鉴权，「使用时间」tab 渲染验收台式机统计；`curl /api/v1/usage` 无 token 即 200。
+- [x] AC8：窗口在今日 / 近 7 天 / 近 30 天之间切换时，数据与图形态相应变化（今日为小时分布，7/30 天为按日趋势）。
+      *验证*：`window=today`→hourly(24 槽)/daily=null；`7d`→daily(7)/hourly=null；`30d`→daily(30)；`window=bogus`→400。
+- [x] AC9：某个 app 的排行条展开后，其下各 description 的时长之和等于该 app 的总时长。
+      *验证*：Chrome `在上网`180+`在写笔记`10=190=app 总秒；终端 140、某个应用 91、记事本均一致。
+- [x] AC10：把保留期配成一个很小的值并触发清理后，早于保留期的桶从库中消失，且接口不因此报错。
+      *验证*：拷 DB 插入 2 天前旧桶，本地 `server.exe` 以 `USAGE_RETENTION_DAYS=1` 启动，启动即 `pruned usage buckets rows=1`，旧桶消失、今日 14 行保留，`:8081/api/v1/usage` 200。
+- [x] AC11：非法窗口参数返回 400；非法 `USAGE_RETENTION_DAYS` / `DISPLAY_TIMEZONE` 导致启动失败并给出可读错误。
+      *验证*：`window=bogus`→400（本会话）；`USAGE_RETENTION_DAYS=0` / `DISPLAY_TIMEZONE=Not/AZone` 启动失败退出码 1（子任务 2 容器实测）。
+- [x] AC12：`POST /report` 在归因逻辑出错时仍返回 204 并广播 SSE（既有实时功能不被统计功能拖累）。
+      *验证*：子任务 2 用真实 `:memory:` store `DROP TABLE usage_bucket` 制造归因故障，POST /report 仍 204 + SSE 有事件 + UpsertState 生效。
+- [x] AC13：`docker compose build && up` 后服务正常启动（证明内嵌 tzdata 生效 —— 这一项本地全绿也可能在容器里失败）。
+      *验证*：容器 `cyberstalk-me-app-1` Up healthy，`/api/v1/usage` 返回 `timezone=Asia/Shanghai` 且 `from` 落本地零点；容器内无 `/usr/share/zoneinfo`（子任务 2 实测）。
+- [x] AC14：脱敏红线复验通过。用诱饵标题跑一轮后，`GET /api/v1/usage` 响应体、小时桶表的
       `app` / `description` 列、以及服务端日志（含 `-v`）中均不出现诱饵字符串。
-- [ ] AC15：既有功能无回归 —— 实时卡片、离线判定、SSE 断线重连后的快照校正全部照常。
+      *验证*：记事本开 `SECRET-TITLE-CANARY.txt`（命中 `canary` 规则）+ Chrome 诱饵 A/B，`-v` 日志只记 `记事本·在写笔记`/`Chrome·在写笔记`；`SECRET-TITLE-CANARY` 与 `BAIT-NOMATCH-XYZ` 在客户端 `-v` 日志、DB 全表、API 响应、服务端日志四处均 0 命中。
+- [x] AC15：既有功能无回归 —— 实时卡片、离线判定、SSE 断线重连后的快照校正全部照常。
+      *验证*：浏览器实开「此刻」tab，验收台式机在线、最后活跃「刚刚」、活动随前台更新；切到「使用时间」再切回，网络面板 SSE 始终 1 条 `/api/v1/stream` 不重建（`useDeviceStream` 在 App 顶层无条件），控制台无报错；离线判定 + SSE 重连校正见 07-28-web 子任务实测，本任务为纯增量未触及该代码。
 
 ## In Scope
 

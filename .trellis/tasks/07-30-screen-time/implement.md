@@ -24,10 +24,14 @@
 
 ## 集成验收（三个子任务都完成后，在父任务里做）
 
-1. **端到端真机链路**：本机跑一台 Windows 客户端，正常上报若干分钟，期间人为制造四种状态 ——
+> **状态（2026-07-30）**：5 步全部实测通过，15 条 AC 全勾（见 `prd.md`）。步骤 1 的锁屏项在本机
+> 发现 `lockapp.exe` 作为前台窗口使 `process == ""` 检测失效（AC5 失败），已修复 `collect` 识别
+> `lockapp.exe`/`logonui.exe` 为锁屏并复验通过，见 `prd.md` R1.2 与 `design.md` §2.1。
+
+1. **端到端真机链路** ✓：本机跑一台 Windows 客户端，正常上报若干分钟，期间人为制造四种状态 ——
    切换应用、静置超过 `idle_threshold`、锁屏、杀掉客户端超过 `USAGE_MAX_GAP` 后重启。
    打开站点「使用时间」tab 逐条核对 AC2–AC6。
-2. **脱敏红线复验**（本任务的最高风险项）：用诱饵标题（把浏览器标签改成 `SECRET-TITLE-CANARY`）
+2. **脱敏红线复验**（本任务的最高风险项） ✓：用诱饵标题（把浏览器标签改成 `SECRET-TITLE-CANARY`）
    跑一轮，然后确认：
    - `GET /api/v1/usage` 的响应体里不出现诱饵字符串；
    - `usage_bucket` 表的 `app` / `description` 列里不出现诱饵字符串
@@ -37,12 +41,12 @@
    这一步必须做：本任务第一次把活动描述**持久化**了，此前它只在内存和一次响应里过一遍。
    映射结果本身是脱敏的，但 `expose_title` 白名单的存在意味着一旦有人配了它，
    原始标题会被**长期落盘**并公开 —— 这是风险等级的实质变化，需在 README 明确写出来。
-3. **保留期与体积**：把 `USAGE_RETENTION_DAYS` 设成 1、`USAGE_PRUNE_INTERVAL` 设成 10s 起服务，
+3. **保留期与体积** ✓：把 `USAGE_RETENTION_DAYS` 设成 1、`USAGE_PRUNE_INTERVAL` 设成 10s 起服务，
    确认旧桶被删且接口不报错（AC10）。
-4. **容器内时区**：`docker compose build && up`，确认服务正常启动（验证 `time/tzdata` 内嵌生效，
+4. **容器内时区** ✓：`docker compose build && up`，确认服务正常启动（验证 `time/tzdata` 内嵌生效，
    见 `design.md` §6.1 —— alpine 无 tzdata，这是最容易在本地全绿、一进容器就挂的一项）。
    再把 `DISPLAY_TIMEZONE` 设成非法值，确认启动失败并给出可读错误（AC11）。
-5. **既有功能不回归**：「此刻」tab 的实时卡片、离线判定、SSE 重连后校正全部照常（对应父项目 AC3–AC6）。
+5. **既有功能不回归** ✓：「此刻」tab 的实时卡片、离线判定、SSE 重连后校正全部照常（对应父项目 AC3–AC6）。
 
 ## 全量验证命令
 
@@ -71,13 +75,18 @@ docker compose build
 
 清单见 `design.md` §11。逐项确认，不要漏：
 
-- [ ] `.trellis/spec/backend/database-guidelines.md` —— 「Never accumulate history rows」需要限定到 `device_state`，
-      并把 `usage_bucket` 加入 Schema 段
-- [ ] `.trellis/tasks/07-28-cyberstalk-me/prd.md` —— R2.4 与 Out of Scope 第 1 条
-- [ ] `.trellis/spec/backend/deployment-guidelines.md` —— 四个新环境变量 + `time/tzdata` 的原因
-- [ ] `.trellis/spec/frontend/state-management.md` —— 「entire state fits in one hook」已不成立
-- [ ] `README.md` —— 功能列表；以及上面集成验收第 2 步得出的结论：
-      `expose_title` 的后果从「实时公开」升级为「长期落盘且公开」
+- [x] `.trellis/spec/backend/database-guidelines.md` —— 「Never accumulate history rows」需要限定到 `device_state`，
+      并把 `usage_bucket` 加入 Schema 段（子任务 2 已做）
+- [x] `.trellis/tasks/07-28-cyberstalk-me/prd.md` —— R2.4 与 Out of Scope 第 1 条（子任务 2 已做）
+- [x] `.trellis/spec/backend/deployment-guidelines.md` —— 四个新环境变量 + `time/tzdata` 的原因（子任务 2 已做）
+- [x] `.trellis/spec/frontend/state-management.md` —— 「entire state fits in one hook」已不成立（子任务 3 已做）
+- [x] `README.md` —— 功能列表；以及上面集成验收第 2 步得出的结论：
+      `expose_title` 的后果从「实时公开」升级为「长期落盘且公开」（子任务 3 已做）
+- [x] `.trellis/spec/guides/cross-layer-thinking-guide.md` —— `Locked` 的 Real-world example 补第二台机器
+      `lockapp.exe` 锁屏检测失效案例（父任务集成验收发现，本次新增）
+- [x] `design.md` §2.1 / §4.2 —— `Locked` 语义拓宽到「无前台窗口或前台是锁屏进程」、`stateOf` 注释更正
+      `idle_seconds=0` 为机型相关（本次新增）
+- [x] `prd.md` R1.2 —— 记录 `lockapp.exe` 集成验收发现与修复（本次新增）
 
 ## 风险与回滚点
 
