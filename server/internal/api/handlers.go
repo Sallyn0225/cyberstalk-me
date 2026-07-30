@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"cyberstalk.me/server/internal/hub"
 	"cyberstalk.me/server/internal/state"
 	"cyberstalk.me/server/internal/store"
+	"cyberstalk.me/server/internal/usage"
 	"cyberstalk.me/shared"
 )
 
@@ -20,14 +22,22 @@ type Handlers struct {
 	hub     *hub.Hub
 	tracker *state.Tracker
 	now     func() time.Time
+	maxGap  time.Duration
+	loc     *time.Location
 }
 
 // New returns Handlers. now is used to stamp last_seen_at (server clock).
-func New(s *store.Store, h *hub.Hub, t *state.Tracker, now func() time.Time) *Handlers {
+// maxGap must be positive — config.Load is what guarantees that; a zero would
+// discard every attribution interval as a gap. loc is the site timezone the
+// usage windows are computed in; nil falls back to UTC.
+func New(s *store.Store, h *hub.Hub, t *state.Tracker, now func() time.Time, maxGap time.Duration, loc *time.Location) *Handlers {
 	if now == nil {
 		now = time.Now
 	}
-	return &Handlers{store: s, hub: h, tracker: t, now: now}
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &Handlers{store: s, hub: h, tracker: t, now: now, maxGap: maxGap, loc: loc}
 }
 
 // Report handles POST /api/v1/report.
@@ -92,6 +102,17 @@ func (h *Handlers) Report(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w)
 		return
 	}
+
+	// Credit the time since the previous report to the activity that report
+	// described — the device was doing that, not this, for the interval that
+	// just ended. This has to run before UpsertState, while the stored state
+	// is still the previous observation.
+	//
+	// Nothing in here may fail the request: usage is a secondary aggregate,
+	// and losing an hour of statistics is not a reason to stop accepting
+	// reports or to let the device think it is offline.
+	h.attributeUsage(ctx, dev.DeviceID, seenAt)
+
 	if err := h.store.UpsertState(ctx, dev.DeviceID, payloadJSON, reportedAt, seenAt); err != nil {
 		slog.Error("report upsert state", "device_id", dev.DeviceID, "err", err)
 		writeInternalError(w)
@@ -117,6 +138,110 @@ func (h *Handlers) Report(w http.ResponseWriter, r *http.Request) {
 
 	slog.Debug("report accepted", "device_id", dev.DeviceID)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// attributeUsage accumulates the interval between the device's previous
+// report and seenAt into the hourly usage buckets. Every failure path only
+// logs: the caller's response must not change because of it.
+//
+// Only the server clock is used. The client's reported_at may be wrong or may
+// jump, while last_seen_at is already the basis for the online judgment.
+func (h *Handlers) attributeUsage(ctx context.Context, deviceID string, seenAt time.Time) {
+	prev, err := h.store.GetState(ctx, deviceID)
+	if err != nil {
+		slog.Error("report read previous state", "device_id", deviceID, "err", err)
+		return
+	}
+	// A registered device that has never reported comes back as a zero-valued
+	// row with a nil error, so the absence of a previous interval shows up
+	// here and not as an error. First report attributes nothing.
+	if prev.LastSeenAt.IsZero() {
+		return
+	}
+	buckets := usage.Attribute(prev.Payload.Activity, prev.LastSeenAt, seenAt, h.maxGap)
+	if len(buckets) == 0 {
+		return
+	}
+	deltas := make([]store.UsageDelta, len(buckets))
+	for i, b := range buckets {
+		deltas[i] = store.UsageDelta{
+			HourStart:   b.HourStart,
+			State:       b.State,
+			App:         b.App,
+			Description: b.Description,
+			Seconds:     b.Seconds,
+		}
+	}
+	if err := h.store.AddUsage(ctx, deviceID, deltas); err != nil {
+		slog.Error("report add usage", "device_id", deviceID, "err", err)
+	}
+}
+
+// Usage handles GET /api/v1/usage?window=today|7d|30d. It is public and
+// read-only, like Snapshot.
+//
+// A missing window means "today"; an unknown one is a 400 rather than a silent
+// fallback, so a typo in a bookmarked URL is visible instead of quietly
+// showing the wrong range.
+func (h *Handlers) Usage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	window := r.URL.Query().Get("window")
+	if window == "" {
+		window = usage.WindowToday
+	}
+	days, ok := usage.WindowDays(window)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "window must be one of today, 7d, 30d")
+		return
+	}
+
+	// The window is whole local days including today, not the last N*24
+	// hours: the daily chart wants complete day slots. time.Date normalizes an
+	// out-of-range day, so month and year boundaries need no special case.
+	to := h.now()
+	local := to.In(h.loc)
+	from := time.Date(local.Year(), local.Month(), local.Day()-(days-1), 0, 0, 0, 0, h.loc)
+
+	// Every device that has reported at least once appears, even with no
+	// buckets in the window; devices that never reported stay out, matching
+	// Snapshot.
+	states, err := h.store.ListStates(ctx)
+	if err != nil {
+		slog.Error("usage list states", "err", err)
+		writeInternalError(w)
+		return
+	}
+	devices := make([]usage.Device, len(states))
+	for i, s := range states {
+		devices[i] = usage.Device{
+			DeviceID:   s.DeviceID,
+			DeviceName: s.DeviceName,
+			DeviceType: s.DeviceType,
+		}
+	}
+
+	stored, err := h.store.QueryUsage(ctx, from.UTC(), to.UTC())
+	if err != nil {
+		slog.Error("usage query buckets", "err", err)
+		writeInternalError(w)
+		return
+	}
+	rows := make([]usage.Row, len(stored))
+	for i, s := range stored {
+		rows[i] = usage.Row{
+			DeviceID:    s.DeviceID,
+			HourStart:   s.HourStart,
+			State:       s.State,
+			App:         s.App,
+			Description: s.Description,
+			Seconds:     s.Seconds,
+		}
+	}
+
+	resp := usage.Aggregate(devices, rows, window, from.UTC(), to.UTC(), h.loc)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // Snapshot handles GET /api/v1/snapshot. It returns the current state of

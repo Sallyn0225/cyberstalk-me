@@ -21,6 +21,7 @@ func Router(h *Handlers, webFS fs.FS) http.Handler {
 		r.Post("/report", h.Report)
 		r.Get("/snapshot", h.Snapshot)
 		r.Get("/stream", h.Stream)
+		r.Get("/usage", h.Usage)
 	})
 
 	// Static frontend. Serve from the embedded filesystem at the root.

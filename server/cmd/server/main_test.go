@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"cyberstalk.me/server/internal/store"
 
@@ -87,6 +88,77 @@ func TestRunRegisterDevice(t *testing.T) {
 	}
 	if store.HashToken(printed) != dev.TokenHash {
 		t.Fatalf("printed token does not hash to stored token_hash")
+	}
+}
+
+// TestPruneUsageRunsAlongsideWritesAndStopsOnCancel exercises the retention
+// goroutine the way it actually runs: sweeping on a tick while reports are
+// being written. SQLite has a single writer, so this is the one place where
+// housekeeping and the hot path contend — worth running under -race.
+func TestPruneUsageRunsAlongsideWritesAndStopsOnCancel(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", filepath.Join(dir, "prune.db"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	st, err := store.New(ctx, db)
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+	if err := st.RegisterDevice(ctx, "d1", "PC", "windows", store.HashToken("tok"), time.Now().UTC()); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	// Old buckets that a zero-day retention window must remove, and a fresh
+	// one that it must keep.
+	old := time.Now().UTC().Add(-48 * time.Hour).Truncate(time.Hour)
+	now := time.Now().UTC().Truncate(time.Hour)
+	if err := st.AddUsage(ctx, "d1", []store.UsageDelta{
+		{HourStart: old, State: "active", App: "Code", Description: "写代码", Seconds: 60},
+		{HourStart: now, State: "active", App: "Code", Description: "写代码", Seconds: 60},
+	}); err != nil {
+		t.Fatalf("seed usage: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		pruneUsage(ctx, st, 1, time.Millisecond)
+	}()
+
+	// Keep writing while the sweep runs.
+	for i := 0; i < 50; i++ {
+		if err := st.AddUsage(ctx, "d1", []store.UsageDelta{
+			{HourStart: now, State: "active", App: "Code", Description: "写代码", Seconds: 1},
+		}); err != nil {
+			t.Fatalf("concurrent add usage: %v", err)
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("pruneUsage did not return after ctx cancel")
+	}
+
+	rows, err := st.QueryUsage(context.Background(), old, now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("query usage: %v", err)
+	}
+	// The 48-hour-old bucket is outside a one-day retention window; the
+	// current hour is inside it.
+	for _, r := range rows {
+		if r.HourStart.Equal(old) {
+			t.Fatalf("old bucket survived pruning: %+v", r)
+		}
+	}
+	if len(rows) != 1 || !rows[0].HourStart.Equal(now) {
+		t.Fatalf("remaining rows = %+v, want only the current hour", rows)
 	}
 }
 

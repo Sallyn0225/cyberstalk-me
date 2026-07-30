@@ -26,6 +26,14 @@ import (
 	"syscall"
 	"time"
 
+	// Embed the IANA timezone database. DISPLAY_TIMEZONE is resolved with
+	// time.LoadLocation, and the runtime image is alpine, which ships no
+	// tzdata — without this the server fails to start in the container while
+	// working fine everywhere else. The Dockerfile's runtime stage must stay
+	// RUN-free (adding `apk add tzdata` would drag QEMU into the multi-arch
+	// build), so the database goes in the binary instead. Costs ~450 KB.
+	_ "time/tzdata"
+
 	"cyberstalk.me/server/internal/api"
 	"cyberstalk.me/server/internal/config"
 	"cyberstalk.me/server/internal/hub"
@@ -84,7 +92,7 @@ func runServer() error {
 
 	h := hub.New()
 	tracker := state.New(st, h, cfg.OfflineThreshold, cfg.ScanInterval, time.Now)
-	handlers := api.New(st, h, tracker, time.Now)
+	handlers := api.New(st, h, tracker, time.Now, cfg.UsageMaxGap, cfg.Location)
 
 	// Serve the embedded web/ directory at the root. fs.Sub strips the
 	// "web" prefix so files appear at "/".
@@ -101,8 +109,11 @@ func runServer() error {
 	}
 
 	go tracker.Run(ctx)
+	go pruneUsage(ctx, st, cfg.UsageRetentionDays, cfg.UsagePruneInterval)
 	go func() {
-		slog.Info("server starting", "addr", cfg.Addr, "offline_threshold", cfg.OfflineThreshold, "scan_interval", cfg.ScanInterval)
+		slog.Info("server starting", "addr", cfg.Addr, "offline_threshold", cfg.OfflineThreshold,
+			"scan_interval", cfg.ScanInterval, "display_timezone", cfg.DisplayTimezone,
+			"usage_retention_days", cfg.UsageRetentionDays, "usage_max_gap", cfg.UsageMaxGap)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("listen and serve", "err", err)
 			cancel()
@@ -119,6 +130,39 @@ func runServer() error {
 	}
 	slog.Info("server stopped")
 	return nil
+}
+
+// pruneUsage enforces the usage retention window until ctx is cancelled. It
+// runs once immediately so a server that restarts more often than the prune
+// interval still prunes, then on every tick.
+//
+// A failed prune is logged and retried on the next tick: retention is
+// housekeeping, and being unable to delete old rows is not a reason to take
+// the server down.
+func pruneUsage(ctx context.Context, st *store.Store, retentionDays int, interval time.Duration) {
+	prune := func() {
+		before := time.Now().UTC().AddDate(0, 0, -retentionDays)
+		n, err := st.PruneUsage(ctx, before)
+		if err != nil {
+			slog.Error("prune usage", "err", err)
+			return
+		}
+		if n > 0 {
+			slog.Info("pruned usage buckets", "rows", n, "before", before.Format(time.RFC3339))
+		}
+	}
+
+	prune()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
+		}
+	}
 }
 
 // openDB opens the SQLite database. ":memory:" is supported for tests; the
