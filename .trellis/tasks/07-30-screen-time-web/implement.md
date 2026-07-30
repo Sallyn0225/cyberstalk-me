@@ -7,19 +7,19 @@
 
 ### 阶段 A：纯逻辑（可先单测）
 
-- [ ] A1. `web/src/lib/format.ts`：新增时长格式化（如 `formatDuration(seconds)` → `4h 32m` / `12m` / `0m`）。
+- [x] A1. `web/src/lib/format.ts`：新增时长格式化（如 `formatDuration(seconds)` → `4h 32m` / `12m` / `0m`）。
       沿用文件里既有风格：纯函数、无 React、非有限值与负数有兜底（参考 `formatIdle` 的 `!Number.isFinite` 处理）。
-- [ ] A2. `web/src/lib/format.test.ts`：AC3.8 的边界用例。
-- [ ] A3. `web/src/types/contract.ts`：镜像父 `design.md` §2.2 的类型 +
+- [x] A2. `web/src/lib/format.test.ts`：AC3.8 的边界用例。
+- [x] A3. `web/src/types/contract.ts`：镜像父 `design.md` §2.2 的类型 +
       `isUsageResponse` / `parseUsage`。
       **校验从宽**：只校验结构，不校验 `window` / `state` 的字符串取值；
       `hourly` / `daily` 校验为 `null | Array`。风格照抄既有 `parseSnapshot`。
-- [ ] A4. `web/src/types/contract.test.ts`：合法载荷通过、`hourly` 为 null 通过、
+- [x] A4. `web/src/types/contract.test.ts`：合法载荷通过、`hourly` 为 null 通过、
       `daily` 为 null 通过、缺字段返回 `null`、畸形嵌套返回 `null`（AC3.7）。
 
 ### 阶段 B：数据获取
 
-- [ ] B1. `web/src/hooks/useUsage.ts`：`useUsage(window)` 返回 `{ data, loading, error }`。
+- [x] B1. `web/src/hooks/useUsage.ts`：`useUsage(window)` 返回 `{ data, loading, error }`。
       - `fetch('/api/v1/usage?window=' + window)`，`AbortController` 取消上一次（R5.6）
       - 解析走 `parseUsage`，`null` 时置错误态（AC3.5）
       - **不加 SSE**、不加轮询（父 D8）
@@ -27,28 +27,28 @@
 
 ### 阶段 C：组件（自下而上，每个都能独立看效果）
 
-- [ ] C1. 若要用 Collapsible，先 `cd web && npx shadcn@latest add collapsible`
+- [x] C1. 若要用 Collapsible，先 `cd web && npx shadcn@latest add collapsible`
       —— `components/ui/` 下的原语必须生成，不手写（spec 明文）。
-- [ ] C2. `components/UsageTotals.tsx`：活跃 / 挂机 / 锁屏 三个数字。
-- [ ] C3. `components/UsageAppList.tsx`：两级排行条。条宽 = `seconds / maxSeconds`，
+- [x] C2. `components/UsageTotals.tsx`：活跃 / 挂机 / 锁屏 三个数字。
+- [x] C3. `components/UsageAppList.tsx`：两级排行条。条宽 = `seconds / maxSeconds`，
       **分母为 0 要短路**，否则出 `NaN`（AC3.6）。展开后渲染 `activities`，
       直接用服务端给的数字，不在前端二次求和（AC3.3）。
-- [ ] C4. `components/UsageChart.tsx`：一个组件吃两种数据源 —— 传入
+- [x] C4. `components/UsageChart.tsx`：一个组件吃两种数据源 —— 传入
       `{ label, seconds, topApp }[]` 的通用形状，由父组件把 `hourly` / `daily` 各自映射进来。
       高度 = `seconds / max`，同样要处理 `max === 0`。每根柱子带 `title`/`aria-label`（R5.8）。
-- [ ] C5. `components/UsagePanel.tsx`：设备选择 + 窗口选择 + 组装 C2–C4。
+- [x] C5. `components/UsagePanel.tsx`：设备选择 + 窗口选择 + 组装 C2–C4。
       设备与窗口是 local `useState`。设备列表从 `data.devices` 取；
       设备为空时显示空态。窗口切换触发 `useUsage` 重新 fetch。
 
 ### 阶段 D：装配与产物
 
-- [ ] D1. `App.tsx`：header 下加 tab 切换（local `useState`，默认「此刻」），
+- [x] D1. `App.tsx`：header 下加 tab 切换（local `useState`，默认「此刻」），
       按 tab 渲染 `DeviceGrid` 或 `UsagePanel`。
       **`useDeviceStream()` 必须保持在 `App` 顶层无条件调用** —— 不能挪进「此刻」分支里，
       否则切 tab 会反复建/拆 SSE 连接（AC3.4）。tab 只控制渲染什么，不控制 hook 是否调用。
-- [ ] D2. 三态检查过一遍：加载中、错误、无数据（AC3.5 / AC3.6）。
+- [x] D2. 三态检查过一遍：加载中、错误、无数据（AC3.5 / AC3.6）。
       深色主题下看一眼对比度（站点 dark-only，AC3.10）。
-- [ ] D3. `npm run build` 并**提交 `server/cmd/server/web/` 产物**（AC3.9）。
+- [x] D3. `npm run build` 并**提交 `server/cmd/server/web/` 产物**（AC3.9）。
 
 ## 验证命令
 

@@ -49,21 +49,21 @@
 
 ## Acceptance Criteria
 
-- [ ] AC3.1（父 AC7）未认证的无痕浏览器打开站点，切到「使用时间」tab 即可看到统计，无需登录。
-- [ ] AC3.2（父 AC8）窗口在今日 / 近 7 天 / 近 30 天之间切换时，数据与图形态相应变化
+- [x] AC3.1（父 AC7）未认证的无痕浏览器打开站点，切到「使用时间」tab 即可看到统计，无需登录。
+- [x] AC3.2（父 AC8）窗口在今日 / 近 7 天 / 近 30 天之间切换时，数据与图形态相应变化
       （今日为小时分布，7/30 天为按日趋势）。
-- [ ] AC3.3（父 AC9）展开某个 app 后，其下各 description 的时长之和等于该 app 的总时长
+- [x] AC3.3（父 AC9）展开某个 app 后，其下各 description 的时长之和等于该 app 的总时长
       （前端只需正确渲染服务端数据，不做二次求和）。
-- [ ] AC3.4 切换 tab 到「此刻」再切回，实时卡片与 SSE 连接状态正常，无重复订阅、无连接泄漏。
-- [ ] AC3.5 接口返回 500 / 网络失败时显示错误态而非白屏；返回畸形 JSON 时 `parseUsage` 返回 `null`
+- [x] AC3.4 切换 tab 到「此刻」再切回，实时卡片与 SSE 连接状态正常，无重复订阅、无连接泄漏。
+- [x] AC3.5 接口返回 500 / 网络失败时显示错误态而非白屏；返回畸形 JSON 时 `parseUsage` 返回 `null`
       并走同一错误态。
-- [ ] AC3.6 窗口内完全无数据的设备显示「无数据」而非空白图表，且不出现 `NaN` / `Infinity`。
-- [ ] AC3.7 `npm run lint`、`npm run typecheck`、`npx vitest run` 全绿；
+- [x] AC3.6 窗口内完全无数据的设备显示「无数据」而非空白图表，且不出现 `NaN` / `Infinity`。
+- [x] AC3.7 `npm run lint`、`npm run typecheck`、`npx vitest run` 全绿；
       `parseUsage` 的结构校验有单测（含 `hourly`/`daily` 可空、畸形返回 `null`）。
-- [ ] AC3.8 时长格式化函数有单测：0 秒、不足 1 分钟、跨小时、超 100 小时、负数/非有限值的兜底。
-- [ ] AC3.9 `npm run build` 后 `git diff --exit-code -- server/cmd/server/web` 干净
+- [x] AC3.8 时长格式化函数有单测：0 秒、不足 1 分钟、跨小时、超 100 小时、负数/非有限值的兜底。
+- [x] AC3.9 `npm run build` 后 `git diff --exit-code -- server/cmd/server/web` 干净
       （产物已重建并提交）。
-- [ ] AC3.10 深色主题下可读（站点是 dark-only，`index.html` 带 `class="dark"`），
+- [x] AC3.10 深色主题下可读（站点是 dark-only，`index.html` 带 `class="dark"`），
       柱状图与排行条在深色背景下有足够对比度。
 
 ## Out of Scope
