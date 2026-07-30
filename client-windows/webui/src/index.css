@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* The setup UI shares the site's accent green so the two feel like one
+   product, but not its 1.4rem radius: this is a dense configuration tool, and
+   pill-shaped inputs read as decoration here. One radius scale, used
+   everywhere.
+
+   No web font is loaded. The agent is a single offline exe, and the UI is
+   mostly Chinese text that a Latin display face would not cover anyway. */
+
+@theme inline {
+  --font-sans: var(--font-system-sans);
+  --font-mono: var(--font-system-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  /* Tells the browser to render its own chrome (scrollbars, focus rings, the
+     native parts of form controls) in whichever mode is active. Without it the
+     scrollbar stays light on a dark page. */
+  color-scheme: light dark;
+
+  --font-system-sans: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei UI",
+    "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-system-mono: ui-monospace, "Cascadia Mono", "Consolas",
+    "Microsoft YaHei Mono", monospace;
+  --radius: 0.65rem;
+
+  --background: oklch(0.9840 0 0);
+  --foreground: oklch(0.1800 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.1800 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.1800 0 0);
+  /* The site's accent, kept identical so both surfaces read as one product. */
+  --primary: oklch(0.6400 0.1300 159.6564);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.9550 0 0);
+  --secondary-foreground: oklch(0.2200 0 0);
+  --muted: oklch(0.9650 0 0);
+  --muted-foreground: oklch(0.4500 0 0);
+  --accent: oklch(0.9550 0.0250 160);
+  --accent-foreground: oklch(0.3600 0.0800 160);
+  --destructive: oklch(0.5450 0.2000 25);
+  --destructive-foreground: oklch(1 0 0);
+  --warning: oklch(0.5600 0.1400 70);
+  --border: oklch(0.9050 0 0);
+  --input: oklch(0.8900 0 0);
+  --ring: oklch(0.6400 0.1300 159.6564);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.1450 0 0);
+    --foreground: oklch(0.9551 0 0);
+    --card: oklch(0.1850 0 0);
+    --card-foreground: oklch(0.9551 0 0);
+    --popover: oklch(0.2100 0 0);
+    --popover-foreground: oklch(0.9551 0 0);
+    --primary: oklch(0.8545 0.1675 159.6564);
+    --primary-foreground: oklch(0.1200 0 0);
+    --secondary: oklch(0.2650 0 0);
+    --secondary-foreground: oklch(0.9551 0 0);
+    --muted: oklch(0.2450 0 0);
+    --muted-foreground: oklch(0.7150 0 0);
+    --accent: oklch(0.3004 0.0609 159.8938);
+    --accent-foreground: oklch(0.9200 0.0900 159.8938);
+    --destructive: oklch(0.7050 0.1750 20);
+    --destructive-foreground: oklch(0.1200 0 0);
+    --warning: oklch(0.8200 0.1300 75);
+    --border: oklch(0.2850 0 0);
+    --input: oklch(0.3400 0 0);
+    --ring: oklch(0.8545 0.1675 159.6564);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    /* The agent's own window is the only way in; a scrollbar that appears and
+       disappears as panels grow would shift the whole layout sideways. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Window titles and regular expressions are read character by character.
+     A tabular monospace stops "l" and "1" from being the same glyph. */
+  .font-mono {
+    font-variant-ligatures: none;
+  }
+}
