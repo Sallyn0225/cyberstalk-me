@@ -60,12 +60,21 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1.1（父 AC1）设备锁屏时上报载荷中 `activity.locked` 为 `true`；`-dry-run` 输出可见该字段，
+- [x] AC1.1（父 AC1）设备锁屏时上报载荷中 `activity.locked` 为 `true`；`-dry-run` 输出可见该字段，
       且输出中**不出现**原始窗口标题。
-- [ ] AC1.2 有前台窗口时（无论是否命中映射规则、是否挂机）`activity.locked` 均为 `false`。
-- [ ] AC1.3 反序列化一段不含 `locked` 键的旧上报 JSON，得到 `Locked == false`，不报错。
-- [ ] AC1.4 `mapping` 包单测覆盖：锁屏分支、无规则进程分支、命中规则分支、`expose_title` 分支的 `Locked` 取值。
-- [ ] AC1.5 前端 `isActivity` 对缺少 `locked` 的对象的处置与下方决定一致，并有单测覆盖。
+      *验证*：真机 `-dry-run` 循环采样（2s × 60，期间 Win+L 锁屏），锁屏帧
+      `{"app":"已锁屏","description":"人不在","idle":false,"idle_seconds":0,"locked":true}`。
+      全部采样帧的 `app` / `description` 均为映射结果，无原始标题。
+      *遗留*：本轮未设置诱饵标题，脱敏红线的完整复验按计划在父任务集成验收第 2 步做
+      （单测 `TestResolveNeverLeaksRawTitle` 已覆盖代码路径）。
+- [x] AC1.2 有前台窗口时（无论是否命中映射规则、是否挂机）`activity.locked` 均为 `false`。
+      *验证*：真机采样中非锁屏帧全部为 `false`；`mapping` 表驱动单测 + `TestResolveIdle` 覆盖挂机情形。
+- [x] AC1.3 反序列化一段不含 `locked` 键的旧上报 JSON，得到 `Locked == false`，不报错。
+      *验证*：`shared.TestUnmarshalReportWithoutLocked`（fixture 用真机实测的锁屏取值）。
+- [x] AC1.4 `mapping` 包单测覆盖：锁屏分支、无规则进程分支、命中规则分支、`expose_title` 分支的 `Locked` 取值。
+      *验证*：`TestResolve` 表新增 `wantLocked` 列，另加空白进程名用例。
+- [x] AC1.5 前端 `isActivity` 对缺少 `locked` 的对象的处置与下方决定一致，并有单测覆盖。
+      *验证*：`contract.test.ts` 的「treats activity.locked as optional」用例（带 / 缺 / 错类型三种）。
 
 ### 关于 AC1.5 的一个决定
 
