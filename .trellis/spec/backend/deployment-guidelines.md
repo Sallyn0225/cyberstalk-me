@@ -109,6 +109,14 @@ wrong:
   CI rebuilds the frontend and diffs that directory. Vite output was measured to
   be deterministic across repeated builds, which is what makes a hard failure
   safe here. See the frontend spec for the committing discipline this enforces.
+- There are **two** such freshness checks. The `webui` job does the same for
+  `client-windows/cmd/agent/webui/`, and that one matters more: `client-windows`
+  ships no release artifact, so every user builds the agent themselves. A stale
+  bundle there means each of them silently gets the previous UI.
+- The `client-windows` job runs on `windows-latest` with `CGO_ENABLED=1` so
+  `-race` works. It exists because the Linux job structurally cannot run these
+  tests: under `GOOS=linux` the `collect` package is excluded and the module
+  does not build.
 
 ## Release flow
 

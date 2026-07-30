@@ -31,6 +31,11 @@ The Windows client is instead validated by the native-Windows gate above
 (`internal/collect`) are Windows-only with no cross-platform stub — a stub
 would only buy a fake green build for code that can never run anywhere else.
 
+Since 2026-07-30 CI runs those tests too, on a `windows-latest` job
+(`go test -race ./client-windows/...`). Before that the Linux job could only
+cross-compile and vet this module, so its unit tests never ran in CI at all.
+Do not rely on the Linux job to catch a client-windows regression.
+
 No golangci-lint requirement for the MVP; `gofmt` + `go vet` + tests is the
 bar. If golangci-lint is added later, update this file with the chosen config.
 
@@ -85,6 +90,15 @@ race-enabled test run, not for the shipped binary.
   tests; the mapping package (`internal/mapping`) is pure and **must** be
   tested, including the "unknown process falls back to generic description"
   rule — that's the privacy boundary.
+- The same split applies to setup mode: `internal/setup` is pure and must be
+  tested (handlers with `httptest` and a stub `Source`); `internal/winsetup` is
+  a thin Win32 adapter, but it still carries two tests that are not about its
+  own logic — `TestSetupModeCannotReport` (dependency-graph assertion) and the
+  live-session tests that bind a real port and write a real file.
+- **Assert user-facing error text verbatim, not with `Contains`.** The agent's
+  startup errors are a contract: the setup UI shows the same strings, and AC6
+  requires them to be identical. `Contains` would let a reword through. See
+  `config/errors_test.go` and `mapping/errors_test.go`.
 
 ---
 

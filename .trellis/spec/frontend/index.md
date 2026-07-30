@@ -6,8 +6,13 @@
 
 ## Overview
 
-Guidelines for the React + Vite + TypeScript SPA in `web/` — a single public
-read-only page (device card grid, snapshot + SSE).
+Guidelines for the React + Vite + TypeScript SPAs in this repo:
+
+- `web/` — the public read-only page (device card grid, snapshot + SSE).
+- `client-windows/webui/` — the `agent.exe -setup` configuration UI, added
+  2026-07-30. Same stack and conventions; see
+  [Directory Structure](./directory-structure.md) for what the two deliberately
+  do not share, and why the setup UI must not re-implement any agent logic.
 
 Greenfield note: these specs were seeded on 2026-07-28 from the confirmed tech
 decisions in `.trellis/tasks/07-28-cyberstalk-me/design.md`. Code examples are

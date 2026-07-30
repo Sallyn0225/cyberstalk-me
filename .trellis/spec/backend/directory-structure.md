@@ -28,12 +28,18 @@ cyberstalk-me/
 │       ├── store/           # SQLite persistence (devices, device_state)
 │       └── config/          # env-based configuration
 ├── client-windows/          # Go module: Windows reporter agent (single exe)
-│   ├── cmd/agent/main.go
+│   ├── cmd/agent/
+│   │   ├── main.go
+│   │   ├── webui.go         # go:embed of the built setup UI + session-token injection
+│   │   └── webui/           # COMMITTED build output of webui/ (embedded; CI diffs it)
+│   ├── webui/               # setup UI source (React + Vite); see frontend spec
 │   └── internal/
 │       ├── collect/         # Win32 collectors (foreground window, idle, battery, network)
-│       ├── config/          # config.yaml load + validation + defaults (pure logic, tested)
+│       ├── config/          # config.yaml load + save + validation + defaults (pure logic, tested)
 │       ├── mapping/         # sanitization rules: process name -> {app, description}
-│       └── report/          # HTTP POST loop with retry/backoff
+│       ├── report/          # HTTP POST loop with retry/backoff
+│       ├── setup/           # -setup: catalog, draft, HTTP API + guards (pure, no Win32)
+│       └── winsetup/        # -setup wiring: Win32 -> setup (windows-only, never imports report)
 ├── web/                     # React + Vite + TS frontend (see frontend spec)
 └── client-android/          # Kotlin app (deferred, later child task)
 ```
@@ -62,6 +68,17 @@ cyberstalk-me/
   plus a lazy title getter. Collect → mapping → payload assembly happens in
   `cmd/agent/main.go`. `collect` is Windows-only (`//go:build windows`) with no
   cross-platform stub; the other three are pure/portable and unit-tested.
+- **`setup` is pure; `winsetup` is the only Windows-only part of setup mode.**
+  `setup` must not import `collect`, and has no build tag at all: the foreground
+  reading is injected as a `setup.Source func() setup.Foreground`, whose Win32
+  implementation lives in `winsetup`. This is what lets the catalog, the draft
+  logic and every HTTP handler be tested on any platform, including a Linux
+  runner. Adding a `//go:build windows` file to `setup` gives that up.
+- **`winsetup` must never import `report`, directly or transitively.** That is
+  the structural half of "setup mode cannot phone home" (see the exception table
+  in [index.md](./index.md)), and `TestSetupModeCannotReport` asserts it with
+  `go list -deps`. If setup mode ever needs to talk to the server, that is a
+  design decision to make explicitly, not a new import to add quietly.
 
 ---
 

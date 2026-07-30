@@ -62,6 +62,43 @@ directory the Go binary embeds (see quality-guidelines.md).
 
 ---
 
+## The second frontend: `client-windows/webui/`
+
+Since 2026-07-30 there are two Vite apps. `client-windows/webui/` is the
+`agent.exe -setup` configuration UI: same stack, same conventions, same
+`outDir`-into-the-embedding-directory arrangement (`client-windows/cmd/agent/webui/`),
+its own CI job and its own freshness gate.
+
+What is deliberately **not** shared:
+
+- **No shared component library.** The two apps have nothing in common but the
+  design language. `web/` renders a public read-only dashboard; `webui/` is a
+  local form-heavy tool. Extracting a shared package would couple two things
+  that change for unrelated reasons.
+- **No web font.** `web/` self-hosts Plus Jakarta Sans; `webui/` uses the system
+  stack. It is a local tool that ships inside a 12 MB exe, and its text is
+  mostly Chinese, which the Latin face would not cover anyway.
+- **Different radius scale.** `web/` uses `--radius: 1.4rem`; `webui/` uses
+  `0.65rem`. Pill-shaped inputs read as decoration in a dense configuration
+  form. The accent colour *is* shared, so the two still read as one product.
+- **Different theme strategy.** `web/` is dark-only (`class="dark"` on `<html>`);
+  `webui/` follows `prefers-color-scheme` with `color-scheme: light dark` so the
+  browser's own scrollbars and controls match.
+
+Two rules specific to `webui/`:
+
+- **The session token comes from the page, never the URL.** `index.html` carries
+  a `__SETUP_TOKEN_PLACEHOLDER__` that the agent replaces at serve time. A URL
+  ends up in history and in `Referer`; this token guards an API that can read
+  raw window titles.
+- **Do not re-implement agent logic in the browser.** Rule matching, regexp
+  compilation, escaping and validation are all round trips to the agent
+  (`/api/preview`, `/api/regex/test`, `/api/regex/suggest`, `PUT /api/config`).
+  JavaScript's regexp engine and Go's RE2 do not agree in the corners, and a
+  preview that disagrees with the real thing is worse than no preview.
+
+---
+
 ## Module Organization
 
 - **No feature folders** — the app is one feature. App components go flat in

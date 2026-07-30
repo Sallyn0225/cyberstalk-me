@@ -141,6 +141,38 @@ of that replay model.
 - [ ] Constants defined in one place
 - [ ] Similar patterns follow same structure
 - [ ] Reducer/action transitions live in one reducer or command dispatcher
+- [ ] A second consumer of config reuses its normalization + validation, not a copy
+
+---
+
+## Trigger: a second thing now builds the same value
+
+**Symptom to watch for**: something other than the original loader starts
+assembling a config / payload / entity — a UI, an importer, a migration.
+
+The tempting move is to construct the struct field by field at the new call
+site. Then the defaults, the trimming, and the "empty means fall back to X"
+rules exist twice, and they drift the first time one side is fixed.
+
+**What to do instead**: export the normalization the loader was doing inline and
+call it from both sides.
+
+```go
+// Wrong: the UI re-derives what Load already knew how to do.
+cfg := &config.Config{ServerURL: strings.TrimRight(form.URL, "/"), ...}
+if cfg.Interval == 0 { cfg.Interval = 10 * time.Second }
+
+// Correct: one implementation, two callers.
+cfg := &config.Config{ServerURL: form.URL, ...}
+cfg.Normalize()          // same rules Load applies
+err := cfg.Validate("draft")   // same rules Load enforces
+```
+
+Real instance: `07-30-config-webui` added a web form that produces a
+`config.Config`. `Load`'s trimming/defaulting was inline, so the first draft of
+the UI reimplemented it. It was pulled out into `config.Normalize()` instead —
+which is what makes "the UI accepts exactly what the agent will start with"
+(AC6) true by construction rather than by matching test fixtures.
 
 ---
 
