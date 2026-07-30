@@ -71,6 +71,77 @@ type Event struct {
 	Device DeviceState `json:"device"`
 }
 
+// UsageWindow is the requested aggregation window for GET /api/v1/usage.
+// Known values: "today", "7d", "30d". Plain string for the same reason as
+// DeviceType.
+type UsageWindow = string
+
+// UsageState is which bucket a second of wall-clock time was attributed to.
+// Known values: "active", "idle", "locked".
+type UsageState = string
+
+// UsageResponse is the body of GET /api/v1/usage.
+type UsageResponse struct {
+	Window   UsageWindow   `json:"window"`
+	Timezone string        `json:"timezone"` // IANA name the window was computed in
+	From     time.Time     `json:"from"`     // inclusive, UTC
+	To       time.Time     `json:"to"`       // exclusive, UTC
+	Devices  []DeviceUsage `json:"devices"`
+}
+
+// DeviceUsage is one device's usage over the requested window.
+type DeviceUsage struct {
+	DeviceID   string      `json:"device_id"`
+	DeviceName string      `json:"device_name"`
+	DeviceType DeviceType  `json:"device_type"`
+	Totals     UsageTotals `json:"totals"`
+	// Apps is the active-time ranking, descending. Idle and locked time never
+	// appear here — only in Totals.
+	Apps []AppUsage `json:"apps"`
+	// Hourly is set for window "today" and null otherwise; Daily is set for
+	// "7d"/"30d" and null otherwise. Exactly one of them is non-null.
+	Hourly []HourUsage `json:"hourly"`
+	Daily  []DayUsage  `json:"daily"`
+}
+
+// UsageTotals is the per-state second count for one device.
+type UsageTotals struct {
+	ActiveSeconds int `json:"active_seconds"`
+	IdleSeconds   int `json:"idle_seconds"`
+	LockedSeconds int `json:"locked_seconds"`
+}
+
+// AppUsage is one app's active time.
+type AppUsage struct {
+	App     string `json:"app"`
+	Seconds int    `json:"seconds"` // active only
+	// Activities is the per-description breakdown of Seconds, descending.
+	// Its Seconds sum equals AppUsage.Seconds.
+	Activities []ActivityUsage `json:"activities"`
+}
+
+// ActivityUsage is one mapped description's active time within an app.
+type ActivityUsage struct {
+	Description string `json:"description"`
+	Seconds     int    `json:"seconds"`
+}
+
+// HourUsage is one hour of the local day. Hours with no usage are still
+// present with Seconds 0, so the frontend can render a fixed 24-slot chart
+// without filling gaps itself.
+type HourUsage struct {
+	Hour    int    `json:"hour"`    // 0-23 in Timezone
+	Seconds int    `json:"seconds"` // active
+	TopApp  string `json:"top_app"` // "" when Seconds is 0
+}
+
+// DayUsage is one local day. Days with no usage are present with Seconds 0.
+type DayUsage struct {
+	Date    string `json:"date"`    // YYYY-MM-DD in Timezone
+	Seconds int    `json:"seconds"` // active
+	TopApp  string `json:"top_app"` // "" when Seconds is 0
+}
+
 // DeviceState is the full state of a device as delivered to the frontend
 // (both via GET /api/v1/snapshot and SSE events). It is the server's
 // projection of the latest report plus its own online/offline judgment.
