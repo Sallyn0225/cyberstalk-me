@@ -25,9 +25,9 @@ VPS 已确认：Ubuntu 22.04.5 / x86_64、Docker 29.2.1 + Compose v5.0.2 + build
 
 ## Step 1 — Dockerfile + .dockerignore
 
-- [ ] 新增 `.dockerignore`（design §1）
-- [ ] 新增 `Dockerfile`（design §1），严守：`--platform=$BUILDPLATFORM`、`GOWORK=off`、`CGO_ENABLED=0`、`GOFLAGS=-p=2`、运行阶段**零 `RUN`**
-- [ ] `.gitignore` 追加 `.env`
+- [x] 新增 `.dockerignore`（design §1）
+- [x] 新增 `Dockerfile`（design §1），严守：`--platform=$BUILDPLATFORM`、`GOWORK=off`、`CGO_ENABLED=0`、`GOFLAGS=-p=2`、运行阶段**零 `RUN`**
+- [x] `.gitignore` 追加 `.env`
 
 验证（**零构建开销**，只做 BuildKit 静态检查，可在 VPS 上安全执行）：
 ```bash
@@ -40,9 +40,9 @@ docker build --check .        # BuildKit lint，只解析不构建
 
 ## Step 2 — compose.yaml + .env.example
 
-- [ ] 新增 `compose.yaml`（design §2）：`image` + `build` 并存、`HOST_PORT` 映射、具名卷、healthcheck
-- [ ] 新增 `.env.example`：`HOST_PORT` / `IMAGE_TAG` / `OFFLINE_THRESHOLD` / `SCAN_INTERVAL`，逐项注释
-- [ ] **不写死内存/CPU 限制**（design §7.3）——交付物要通用，验证期的限制放 VPS 本地的 `compose.override.yaml`
+- [x] 新增 `compose.yaml`（design §2）：`image` + `build` 并存、`HOST_PORT` 映射、具名卷、healthcheck
+- [x] 新增 `.env.example`：`HOST_PORT` / `IMAGE_TAG` / `OFFLINE_THRESHOLD` / `SCAN_INTERVAL`，逐项注释
+- [x] **不写死内存/CPU 限制**（design §7.3）——交付物要通用，验证期的限制放 VPS 本地的 `compose.override.yaml`
 
 验证（静态，无需 daemon 干活）：
 ```bash
@@ -54,10 +54,10 @@ docker compose -p cyberstalk-verify config --services
 
 ## Step 3 — CI 工作流（Dockerfile 的第一次真实构建在这里）
 
-- [ ] 新增 `.github/workflows/ci.yml`，三个 job：`go` / `web` / `docker`（design §3）
-- [ ] `go` job：逐模块执行；`client-windows` 用 `GOOS=windows GOARCH=amd64`；`gofmt -l` 输出非空即失败
-- [ ] `web` job：`npm ci`（非 `npm install`）；`git diff --exit-code -- server/cmd/server/web` 附可操作的失败提示
-- [ ] `docker` job：`build-push-action`，`push: false`、单架构 amd64、GHA 缓存
+- [x] 新增 `.github/workflows/ci.yml`，三个 job：`go` / `web` / `docker`（design §3）
+- [x] `go` job：逐模块执行；`client-windows` 用 `GOOS=windows GOARCH=amd64`；`gofmt -l` 输出非空即失败
+- [x] `web` job：`npm ci`（非 `npm install`）；`git diff --exit-code -- server/cmd/server/web` 附可操作的失败提示
+- [x] `docker` job：`build-push-action`，`push: false`、单架构 amd64、GHA 缓存
 
 本地预演 Go/前端部分（不碰 Docker）：
 ```bash
@@ -70,19 +70,19 @@ git diff --stat -- server/cmd/server/web    # 期望为空 → 已提交产物�
 ```
 > **Vite 确定性判定（design §8.3）**：连跑两次 `npm run build`，两次之后 `git diff` 都为空 → R3.4 保持硬失败；否则改 `continue-on-error` 并回写 design.md 与 prd.md 的风险条目。
 
-- [ ] 推分支跑一次 CI，三个 job 全绿（**AC6 前半**）。`docker` job 绿 = Dockerfile 首次通过真实构建验证
-- [ ] **AC6 后半**：临时分支分别注入 ① `gofmt` 违规 ② TS 类型错误 ③ 改 `web/src` 但不 build，确认对应 job 各自失败；验证后丢弃该分支
+- [x] 推分支跑一次 CI，三个 job 全绿（**AC6 前半**）。`docker` job 绿 = Dockerfile 首次通过真实构建验证
+- [x] **AC6 后半**：临时分支分别注入 ① `gofmt` 违规 ② TS 类型错误 ③ 改 `web/src` 但不 build，确认对应 job 各自失败；验证后丢弃该分支
 
 **回滚点 D**：`rm .github/workflows/ci.yml`
 
 ## Step 4 — CD 工作流（AC4 多架构在这里验证）
 
-- [ ] 新增 `.github/workflows/release.yml`（design §4）：`permissions: {contents: read, packages: write}`、GHCR 登录、metadata-action tag 策略、`platforms: linux/amd64,linux/arm64`、GHA 缓存
-- [ ] 合入 `main` 触发一次 → 确认推出 `edge` 与 `sha-*`
-- [ ] **AC4 验证**：CD 的多架构构建成功即达成。**若报 `exec format error`**，说明运行阶段混进了需目标架构执行的指令（design §8.2 假设失败）→ 先回头修 Dockerfile 消除该指令；确实消除不掉才加 `docker/setup-qemu-action`，并回写 design.md 说明为何退让
-- [ ] 打测试 tag（如 `v0.1.0-rc.1`）→ 确认版本号 tag 正确
-- [ ] 在 GitHub → Packages 把包设为 **public**（一次性人工步骤，否则别人 `docker pull` 报 `denied`）
-- [ ] 确认实际镜像路径为全小写 `ghcr.io/sallyn0225/cyberstalk-me`；与 `compose.yaml` 写死的不一致就回改 compose 与 README
+- [x] 新增 `.github/workflows/release.yml`（design §4）：`permissions: {contents: read, packages: write}`、GHCR 登录、metadata-action tag 策略、`platforms: linux/amd64,linux/arm64`、GHA 缓存
+- [x] 合入 `main` 触发一次 → 确认推出 `edge` 与 `sha-*`
+- [x] **AC4 验证**：CD 的多架构构建成功即达成。**若报 `exec format error`**，说明运行阶段混进了需目标架构执行的指令（design §8.2 假设失败）→ 先回头修 Dockerfile 消除该指令；确实消除不掉才加 `docker/setup-qemu-action`，并回写 design.md 说明为何退让
+- [x] 打测试 tag（如 `v0.1.0-rc.1`）→ 确认版本号 tag 正确
+- [x] 在 GitHub → Packages 把包设为 **public**（一次性人工步骤，否则别人 `docker pull` 报 `denied`）
+- [x] 确认实际镜像路径为全小写 `ghcr.io/sallyn0225/cyberstalk-me`；与 `compose.yaml` 写死的不一致就回改 compose 与 README
 ```bash
 docker manifest inspect ghcr.io/sallyn0225/cyberstalk-me:edge   # amd64 + arm64 都在（本地即可查，无需 VPS）
 ```
@@ -157,19 +157,19 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 
 ## Step 6 — README（仓库根）
 
-- [ ] 新增 `README.md`，按 design §5 的结构写
-- [ ] 必含：compose 三步部署、`register-device` 完整示例（含真实输出样式）、客户端配置指向、nginx/Caddy 反代片段（**SSE 关缓冲**）、数据卷备份、本地开发、前端产物纪律
-- [ ] **AC8 自检**：README 部署章节的命令序列，就是 Step 5.1 实际跑过的那串 —— 两者必须一字不差地对得上，对不上以实际跑通的为准
+- [x] 新增 `README.md`，按 design §5 的结构写
+- [x] 必含：compose 三步部署、`register-device` 完整示例（含真实输出样式）、客户端配置指向、nginx/Caddy 反代片段（**SSE 关缓冲**）、数据卷备份、本地开发、前端产物纪律
+- [x] **AC8 自检**：README 部署章节的命令序列，就是 Step 5.1 实际跑过的那串 —— 两者必须一字不差地对得上，对不上以实际跑通的为准
 
 **回滚点 G**：`rm README.md`
 
 ## Step 7 — 收尾
 
-- [ ] 逐条对照 prd.md 的 AC1–AC9 勾选，未通过项写明原因，不含糊带过
-- [ ] 明确报告：哪些 AC 在 CI 验证、哪些在 VPS 验证、有没有降级或跳过的
-- [ ] 更新父任务 `07-28-cyberstalk-me` 的相关记录（部署方式已变为 compose）
-- [ ] `.trellis/spec/backend/` 视情况补一条部署/构建约定（如「运行阶段零 RUN」「前端产物必须提交」）
-- [ ] 走 Trellis 3.3 / 3.4：spec 更新 + 提交
+- [x] 逐条对照 prd.md 的 AC1–AC9 勾选，未通过项写明原因，不含糊带过
+- [x] 明确报告：哪些 AC 在 CI 验证、哪些在 VPS 验证、有没有降级或跳过的
+- [x] 更新父任务 `07-28-cyberstalk-me` 的相关记录（部署方式已变为 compose）
+- [x] `.trellis/spec/backend/` 视情况补一条部署/构建约定（如「运行阶段零 RUN」「前端产物必须提交」）
+- [x] 走 Trellis 3.3 / 3.4：spec 更新 + 提交
 
 ---
 
@@ -183,9 +183,10 @@ docker buildx ls                               # 确认 cyberstalk-builder 已�
 | 1 | `Dockerfile` + `.dockerignore` + `.gitignore` 追加 `.env` / `compose.override.yaml`。`docker build --check`（远端 BuildKit lint）**零告警** |
 | 2 | `compose.yaml` + `.env.example`。`docker compose config` 插值与 schema 校验通过 |
 | 3 | `.github/workflows/ci.yml`。本地预演 Go 门禁全过、前端 lint/typecheck/22 个用例/build 全过。**Vite 连跑两次产物 diff 为空 → R3.4 保持硬失败**（design §8.3 结论）。PR #1 上 CI 三 job 全绿 |
-| 4 | `.github/workflows/release.yml` 已写。**未触发** —— 等 PR 合入 main |
+| 4 | `.github/workflows/release.yml`。合入 main 与打 `v0.1.0` 各触发一次，均成功，标签策略与设计一致（详见下文「合入 main 之后」） |
 | 5 | VPS 运行时验证完成，见下 |
-| 6 | 根 `README.md` 已写 |
+| 6 | 根 `README.md`。AC8 两轮实测按 README 逐条照抄，命令与实际跑通的一致 |
+| 7 | 收尾：AC 逐条勾选、父任务记录更新、新增 `.trellis/spec/backend/deployment-guidelines.md` |
 
 ### AC6 反向验证（三轮，临时分支验完即删）
 
