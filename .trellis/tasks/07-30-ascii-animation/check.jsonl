@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-30-ascii-animation/prd.md", "reason": "验收标准 AC1–AC8 逐条核对，尤其 AC2（结构化状态压过 app 匹配）与 AC6（体积与懒加载）"}
+{"file": ".trellis/tasks/07-30-ascii-animation/design.md", "reason": "核对 §3.2 五级判定顺序是否原样落地、§4.2 是否误写成 acc -= step（会在标签页切回时补播积压帧）、§6 的行高与 aspect 是否配套"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "门禁核对：lint / typecheck / vitest / build 全过；dependencies 一字未改；server/cmd/server/web 产物已重建并提交"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对 a11y：动画容器 aria-hidden、font-mono 未波及卡片 CJK 文案；核对 DeviceCard 仍是纯展示组件"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "核对 R6：对 Animation 规范的偏离是否已在同一任务内回写 spec，且用英文书写"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "核对 useAsciiFrames 的 cleanup 与竞态标志是否齐全，依赖数组是 name 而非 device"}
+{"file": ".trellis/spec/guides/index.md", "reason": "交叉评审的误报核验规则与验证纪律"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "排查是否在组件里重写了一份场景匹配，而非复用 lib/scene.ts 的纯函数"}

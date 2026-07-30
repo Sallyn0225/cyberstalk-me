@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/07-30-ascii-animation/prd.md", "reason": "本任务需求（R1–R6）、决策（D1–D8）与验收标准（AC1–AC8）的唯一出处"}
+{"file": ".trellis/tasks/07-30-ascii-animation/design.md", "reason": "帧数据格式（§2）、五级判定顺序与匹配语义（§3）、rAF 播放器实现（§4）、ch/行高排版对应关系（§6）"}
+{"file": ".trellis/tasks/07-30-ascii-animation/implement.md", "reason": "阶段 0–5 的执行顺序、每阶段门禁与回滚点；阶段 0 被用户侧素材准备阻塞"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范总入口，含「real code diverges for a good reason → update the spec in the same task」这条本任务必须执行的规定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件结构与 props 约定、a11y 纪律（装饰元素 aria-hidden）、font-mono 在 CJK 上的既有教训；本任务对其 Animation 一条构成偏离并须同步更新"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "依赖基线（本任务须零新增）、禁用模式（useEffect 不做派生计算）、effect 必须 cleanup、构建产物随源码提交"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 lib/scene.ts、hooks/useAsciiFrames.ts、components/AsciiAnimation.tsx、assets/ascii/、config/ 的放置位置与命名"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "useAsciiFrames 的生命周期与竞态处理需与既有 useDeviceStream 的 hook 约定同构"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "AsciiClip / SceneConfig 的类型定义与解析守卫约定；本任务不改 contract.ts，但需理解其镜像纪律"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "确认前端场景匹配与客户端 mapping 规则是两套不同职责（前者匹配已脱敏结果，后者产生它），不构成重复实现"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务刻意不动 shared/contract.go（D1），需理解跨层同步纪律以确认这个选择的边界与代价"}

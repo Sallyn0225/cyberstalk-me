@@ -23,7 +23,9 @@
     "07-28-web",
     "07-28-client-windows",
     "07-30-deploy-docker-cicd",
-    "07-28-client-android"
+    "07-28-client-android",
+    "07-30-config-webui",
+    "07-30-ascii-animation"
   ],
   "parent": null,
   "relatedFiles": [],
