@@ -25,25 +25,27 @@ import (
 
 // Rule maps one process to its sanitized app name and description. The yaml
 // tags let config.Load decode straight into this type without a parallel set
-// of structs; struct tags add no dependency on the yaml package.
+// of structs; the json tags do the same for the setup UI's API, and are spelled
+// identically so a rule reads the same in the file and on the wire. Struct tags
+// add no dependency on either encoding package.
 type Rule struct {
 	// Process is the executable base name, matched case-insensitively
 	// (e.g. "code.exe").
-	Process string `yaml:"process"`
+	Process string `yaml:"process" json:"process"`
 	// App is the sanitized app name shown on the site.
-	App string `yaml:"app"`
+	App string `yaml:"app" json:"app"`
 	// Description is the sanitized default activity description.
-	Description string `yaml:"description"`
+	Description string `yaml:"description" json:"description"`
 	// TitlePatterns optionally refine Description by matching the raw window
 	// title. The title is matched in memory only; it is never reported.
-	TitlePatterns []TitlePattern `yaml:"title_patterns"`
+	TitlePatterns []TitlePattern `yaml:"title_patterns" json:"title_patterns"`
 }
 
 // TitlePattern refines a rule's description when the raw window title matches
 // Match (a Go regular expression).
 type TitlePattern struct {
-	Match       string `yaml:"match"`
-	Description string `yaml:"description"`
+	Match       string `yaml:"match" json:"match"`
+	Description string `yaml:"description" json:"description"`
 }
 
 // Options is the mapper configuration. Defaults are the caller's job (see
@@ -102,16 +104,18 @@ func New(opts Options) (*Mapper, error) {
 	for i, r := range opts.Rules {
 		key := normalize(r.Process)
 		if key == "" {
-			return nil, fmt.Errorf("rule %d: process must not be empty", i)
+			return nil, &RuleError{Index: i, Pattern: -1, Field: "process", Message: "process must not be empty"}
 		}
 		if _, dup := m.rules[key]; dup {
-			return nil, fmt.Errorf("rule %d: duplicate process %q", i, r.Process)
+			return nil, &RuleError{Index: i, Pattern: -1, Process: r.Process, Field: "process",
+				Message: fmt.Sprintf("duplicate process %q", r.Process)}
 		}
 		cr := compiledRule{app: r.App, description: r.Description}
 		for j, p := range r.TitlePatterns {
 			re, err := regexp.Compile(p.Match)
 			if err != nil {
-				return nil, fmt.Errorf("rule %d (%s) title_pattern %d: compile %q: %w", i, r.Process, j, p.Match, err)
+				return nil, &RuleError{Index: i, Pattern: j, Process: r.Process, Field: "match",
+					Message: fmt.Sprintf("compile %q: %v", p.Match, err), Err: err}
 			}
 			cr.patterns = append(cr.patterns, compiledPattern{re: re, description: p.Description})
 		}
@@ -120,13 +124,14 @@ func New(opts Options) (*Mapper, error) {
 	for i, p := range opts.ExposeTitle {
 		key := normalize(p)
 		if key == "" {
-			return nil, fmt.Errorf("expose_title %d: process must not be empty", i)
+			return nil, &RuleError{Index: i, Pattern: -1, ExposeTitle: true, Message: "process must not be empty"}
 		}
 		if _, ok := m.rules[key]; !ok {
 			// Without a matching rule the process would fall back to the
 			// generic default and the title would never be read, which is not
 			// what someone writing expose_title expects. Fail loud.
-			return nil, fmt.Errorf("expose_title %d: process %q has no rule; add a rule for it first", i, p)
+			return nil, &RuleError{Index: i, Pattern: -1, ExposeTitle: true, Process: p,
+				Message: fmt.Sprintf("process %q has no rule; add a rule for it first", p)}
 		}
 		m.expose[key] = struct{}{}
 	}

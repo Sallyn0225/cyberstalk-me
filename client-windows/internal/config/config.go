@@ -113,8 +113,24 @@ type fileConfig struct {
 	ExposeTitle []string       `yaml:"expose_title"`
 }
 
-// duration accepts either a Go duration string ("10s", "1m30s") or a bare
+// ParseDuration accepts either a Go duration string ("10s", "1m30s") or a bare
 // integer read as seconds, matching the server's env parsing.
+//
+// It is exported so that anything editing a configuration outside of YAML — the
+// setup UI's API, for one — accepts exactly what the config file accepts.
+func ParseDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if parsed, err := time.ParseDuration(s); err == nil {
+		return parsed, nil
+	}
+	// A bare integer is read as seconds, matching the server's env parsing.
+	if secs, err := strconv.Atoi(s); err == nil {
+		return time.Duration(secs) * time.Second, nil
+	}
+	return 0, fmt.Errorf("invalid duration %q (examples: 10s, 1m30s, or bare seconds 10)", s)
+}
+
+// duration is the YAML-decoding shape of a ParseDuration value.
 type duration time.Duration
 
 func (d *duration) UnmarshalYAML(node *yaml.Node) error {
@@ -122,17 +138,12 @@ func (d *duration) UnmarshalYAML(node *yaml.Node) error {
 	if err := node.Decode(&s); err != nil {
 		return fmt.Errorf("invalid duration %q (examples: 10s, 1m30s, or bare seconds 10)", node.Value)
 	}
-	s = strings.TrimSpace(s)
-	if parsed, err := time.ParseDuration(s); err == nil {
-		*d = duration(parsed)
-		return nil
+	parsed, err := ParseDuration(s)
+	if err != nil {
+		return err
 	}
-	// A bare integer is read as seconds, matching the server's env parsing.
-	if secs, err := strconv.Atoi(s); err == nil {
-		*d = duration(time.Duration(secs) * time.Second)
-		return nil
-	}
-	return fmt.Errorf("invalid duration %q (examples: 10s, 1m30s, or bare seconds 10)", s)
+	*d = duration(parsed)
+	return nil
 }
 
 // DefaultPath returns the config.yaml next to the executable. The working
@@ -162,40 +173,69 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		ServerURL:          strings.TrimRight(strings.TrimSpace(f.ServerURL), "/"),
-		DeviceID:           strings.TrimSpace(f.DeviceID),
-		Token:              strings.TrimSpace(f.Token),
+		ServerURL:          f.ServerURL,
+		DeviceID:           f.DeviceID,
+		Token:              f.Token,
 		Interval:           time.Duration(f.Interval),
-		DeviceName:         strings.TrimSpace(f.DeviceName),
+		DeviceName:         f.DeviceName,
 		IdleThreshold:      time.Duration(f.IdleThreshold),
-		DefaultApp:         orDefault(f.DefaultApp, DefaultApp),
-		DefaultDescription: orDefault(f.DefaultDescription, DefaultDescription),
-		LockedApp:          orDefault(f.LockedApp, DefaultLockedApp),
-		LockedDescription:  orDefault(f.LockedDescription, DefaultLockedDesc),
+		DefaultApp:         f.DefaultApp,
+		DefaultDescription: f.DefaultDescription,
+		LockedApp:          f.LockedApp,
+		LockedDescription:  f.LockedDescription,
 		Rules:              f.Rules,
 		ExposeTitle:        f.ExposeTitle,
 	}
-	if cfg.Interval == 0 {
-		cfg.Interval = DefaultInterval
-	}
-	if cfg.IdleThreshold == 0 {
-		cfg.IdleThreshold = DefaultIdleThreshold
-	}
-	// A rule may omit its description; fall back to the generic one rather
-	// than reporting an empty string.
-	for i := range cfg.Rules {
-		if strings.TrimSpace(cfg.Rules[i].Description) == "" {
-			cfg.Rules[i].Description = cfg.DefaultDescription
-		}
-	}
+	cfg.Normalize()
 
-	if err := cfg.validate(path); err != nil {
+	if err := cfg.Validate(path); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-func (c *Config) validate(path string) error {
+// Normalize trims the scalar fields and fills in the defaults for anything left
+// empty. Load calls it after decoding; anything else that assembles a Config —
+// a configuration UI, for one — calls it too, so a hand-written file and a
+// form-built configuration converge on exactly the same value.
+//
+// It only normalizes. Deciding whether the result is usable is Validate's job.
+func (c *Config) Normalize() {
+	c.ServerURL = strings.TrimRight(strings.TrimSpace(c.ServerURL), "/")
+	c.DeviceID = strings.TrimSpace(c.DeviceID)
+	c.Token = strings.TrimSpace(c.Token)
+	c.DeviceName = strings.TrimSpace(c.DeviceName)
+	c.DefaultApp = orDefault(c.DefaultApp, DefaultApp)
+	c.DefaultDescription = orDefault(c.DefaultDescription, DefaultDescription)
+	c.LockedApp = orDefault(c.LockedApp, DefaultLockedApp)
+	c.LockedDescription = orDefault(c.LockedDescription, DefaultLockedDesc)
+
+	// Zero means "absent"; a negative value is a mistake and is left alone for
+	// Validate to reject.
+	if c.Interval == 0 {
+		c.Interval = DefaultInterval
+	}
+	if c.IdleThreshold == 0 {
+		c.IdleThreshold = DefaultIdleThreshold
+	}
+	// A rule may omit its description; fall back to the generic one rather
+	// than reporting an empty string.
+	for i := range c.Rules {
+		if strings.TrimSpace(c.Rules[i].Description) == "" {
+			c.Rules[i].Description = c.DefaultDescription
+		}
+	}
+}
+
+// Validate reports whether the configuration is usable, returning a
+// *ValidationError describing the first problem found.
+//
+// source names where the configuration came from and appears in the error
+// message: Load passes the file path, an editor holding an unsaved
+// configuration passes something like "draft". There is deliberately only one
+// implementation of these rules — a configuration accepted here is exactly a
+// configuration the agent will start with.
+func (c *Config) Validate(source string) error {
 	var missing []string
 	if c.ServerURL == "" {
 		missing = append(missing, "server_url")
@@ -207,37 +247,44 @@ func (c *Config) validate(path string) error {
 		missing = append(missing, "token")
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("config %s: %s must not be empty (run `server register-device` and paste its snippet)", path, strings.Join(missing, ", "))
+		return invalid(source, missing, "%s must not be empty (run `server register-device` and paste its snippet)", joinFields(missing))
 	}
 
 	u, err := url.Parse(c.ServerURL)
 	if err != nil {
-		return fmt.Errorf("config %s: server_url %q is not a valid URL: %w", path, c.ServerURL, err)
+		e := invalid(source, []string{"server_url"}, "server_url %q is not a valid URL: %v", c.ServerURL, err)
+		e.Err = err
+		return e
 	}
 	if u.Scheme != "http" && u.Scheme != "https" || u.Host == "" {
-		return fmt.Errorf("config %s: server_url %q must be http(s)://host[:port] with no path", path, c.ServerURL)
+		return invalid(source, []string{"server_url"}, "server_url %q must be http(s)://host[:port] with no path", c.ServerURL)
 	}
 
 	if c.Interval <= 0 {
-		return fmt.Errorf("config %s: interval must be positive, got %s", path, c.Interval)
+		return invalid(source, []string{"interval"}, "interval must be positive, got %s", c.Interval)
 	}
 	if c.IdleThreshold <= 0 {
-		return fmt.Errorf("config %s: idle_threshold must be positive, got %s", path, c.IdleThreshold)
+		return invalid(source, []string{"idle_threshold"}, "idle_threshold must be positive, got %s", c.IdleThreshold)
 	}
 
 	for i, r := range c.Rules {
 		if strings.TrimSpace(r.Process) == "" {
-			return fmt.Errorf("config %s: rules[%d].process must not be empty", path, i)
+			return invalid(source, []string{ruleField(i, "process")}, "rules[%d].process must not be empty", i)
 		}
 		if strings.TrimSpace(r.App) == "" {
-			return fmt.Errorf("config %s: rules[%d] (%s): app must not be empty", path, i, r.Process)
+			return invalid(source, []string{ruleField(i, "app")}, "rules[%d] (%s): app must not be empty", i, r.Process)
 		}
 	}
 
 	// Building the mapper validates rule keys, duplicates, regular expressions
 	// and expose_title entries — one implementation, checked at startup.
 	if _, err := mapping.New(c.MapperOptions()); err != nil {
-		return fmt.Errorf("config %s: %w", path, err)
+		e := &ValidationError{Source: source, Message: err.Error(), Err: err}
+		var re *mapping.RuleError
+		if errors.As(err, &re) {
+			e.Fields = []string{re.FieldPath()}
+		}
+		return e
 	}
 	return nil
 }
