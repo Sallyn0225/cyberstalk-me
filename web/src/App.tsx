@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { CircleAlert, Eye, Radio } from 'lucide-react'
 
 import { DeviceGrid } from '@/components/DeviceGrid'
+import { UsagePanel } from '@/components/UsagePanel'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDeviceStream, type ConnectionState } from '@/hooks/useDeviceStream'
 import { cn } from '@/lib/utils'
 
@@ -45,7 +47,11 @@ function LoadingGrid() {
 }
 
 export function App() {
+  // Stays here, above the tabs, and is called unconditionally: moving it into
+  // the "此刻" branch would tear down and rebuild the SSE connection on every
+  // tab switch. The tabs decide what renders, never whether the hook runs.
   const { devices, connection, error } = useDeviceStream()
+  const [tab, setTab] = useState('now')
 
   // Relative times are derived at render time, so a periodic re-render is all
   // that keeps them fresh — nothing formatted is stored in state.
@@ -72,24 +78,37 @@ export function App() {
         </p>
       </header>
 
-      {empty && error ? (
-        <Card>
-          <CardContent className="text-muted-foreground flex items-center gap-2">
-            <CircleAlert aria-hidden className="text-destructive size-4" />
-            {error}
-          </CardContent>
-        </Card>
-      ) : empty && connection === 'connecting' ? (
-        <LoadingGrid />
-      ) : empty ? (
-        <Card>
-          <CardContent className="text-muted-foreground">
-            还没有设备上报过。启动任意一台设备上的采集客户端，它就会出现在这里。
-          </CardContent>
-        </Card>
-      ) : (
-        <DeviceGrid devices={devices} />
-      )}
+      <Tabs value={tab} onValueChange={setTab} className="gap-6">
+        <TabsList variant="line">
+          <TabsTrigger value="now">此刻</TabsTrigger>
+          <TabsTrigger value="usage">使用时间</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="now">
+          {empty && error ? (
+            <Card>
+              <CardContent className="text-muted-foreground flex items-center gap-2">
+                <CircleAlert aria-hidden className="text-destructive size-4" />
+                {error}
+              </CardContent>
+            </Card>
+          ) : empty && connection === 'connecting' ? (
+            <LoadingGrid />
+          ) : empty ? (
+            <Card>
+              <CardContent className="text-muted-foreground">
+                还没有设备上报过。启动任意一台设备上的采集客户端，它就会出现在这里。
+              </CardContent>
+            </Card>
+          ) : (
+            <DeviceGrid devices={devices} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="usage">
+          <UsagePanel />
+        </TabsContent>
+      </Tabs>
     </main>
   )
 }

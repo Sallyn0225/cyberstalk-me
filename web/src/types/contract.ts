@@ -57,6 +57,80 @@ export type StreamEvent =
   | { type: 'update'; device: DeviceState }
   | { type: 'offline'; device: DeviceState }
 
+/**
+ * Aggregation window asked of `GET /api/v1/usage`. Go: `UsageWindow = string`
+ * with these known values, same as DeviceType — the guard below does not check
+ * the value, so a window added later still parses.
+ */
+export type UsageWindow = 'today' | '7d' | '30d'
+
+/** Per-state second counts for one device over the window. Go: value type. */
+export interface UsageTotals {
+  active_seconds: number
+  idle_seconds: number
+  locked_seconds: number
+}
+
+/** One mapped description's active time within an app. */
+export interface ActivityUsage {
+  description: string
+  seconds: number
+}
+
+/** One app's active time. Idle and locked time never appear here. */
+export interface AppUsage {
+  app: string
+  /** Active seconds only. Equals the sum of `activities`. */
+  seconds: number
+  activities: ActivityUsage[]
+}
+
+/** One hour of the local day. Hours with no usage are present with `seconds` 0. */
+export interface HourUsage {
+  hour: number
+  seconds: number
+  /** "" when `seconds` is 0. */
+  top_app: string
+}
+
+/** One local day. Days with no usage are present with `seconds` 0. */
+export interface DayUsage {
+  /** `YYYY-MM-DD` in the response's `timezone`. */
+  date: string
+  seconds: number
+  /** "" when `seconds` is 0. */
+  top_app: string
+}
+
+/** One device's usage over the requested window. */
+export interface DeviceUsage {
+  device_id: string
+  device_name: string
+  device_type: DeviceType
+  totals: UsageTotals
+  /** Active-time ranking, descending. Empty when nothing was active. */
+  apps: AppUsage[]
+  /**
+   * `hourly` is set for window "today" and null otherwise; `daily` is set for
+   * "7d"/"30d" and null otherwise. Exactly one of them is non-null — Go ships
+   * both as slices, so a nil one serializes to `null`.
+   */
+  hourly: HourUsage[] | null
+  daily: DayUsage[] | null
+}
+
+/** Body of `GET /api/v1/usage`. Go: `shared.UsageResponse`. */
+export interface UsageResponse {
+  window: UsageWindow
+  /** IANA name the window was computed in. */
+  timezone: string
+  /** RFC 3339, inclusive, UTC. */
+  from: string
+  /** RFC 3339, exclusive, UTC. */
+  to: string
+  devices: DeviceUsage[]
+}
+
 // --- Runtime guards -------------------------------------------------------
 //
 // The single trust boundary is "JSON off the wire". No schema library: the
@@ -116,6 +190,93 @@ export function parseSnapshot(value: unknown): DeviceState[] | null {
   if (!Array.isArray(value)) return null
   if (!value.every(isDeviceState)) return null
   return value as DeviceState[]
+}
+
+function isUsageTotals(value: unknown): value is UsageTotals {
+  return (
+    isRecord(value) &&
+    typeof value.active_seconds === 'number' &&
+    typeof value.idle_seconds === 'number' &&
+    typeof value.locked_seconds === 'number'
+  )
+}
+
+function isActivityUsage(value: unknown): value is ActivityUsage {
+  return (
+    isRecord(value) &&
+    typeof value.description === 'string' &&
+    typeof value.seconds === 'number'
+  )
+}
+
+function isAppUsage(value: unknown): value is AppUsage {
+  return (
+    isRecord(value) &&
+    typeof value.app === 'string' &&
+    typeof value.seconds === 'number' &&
+    Array.isArray(value.activities) &&
+    value.activities.every(isActivityUsage)
+  )
+}
+
+function isHourUsage(value: unknown): value is HourUsage {
+  return (
+    isRecord(value) &&
+    typeof value.hour === 'number' &&
+    typeof value.seconds === 'number' &&
+    typeof value.top_app === 'string'
+  )
+}
+
+function isDayUsage(value: unknown): value is DayUsage {
+  return (
+    isRecord(value) &&
+    typeof value.date === 'string' &&
+    typeof value.seconds === 'number' &&
+    typeof value.top_app === 'string'
+  )
+}
+
+function isDeviceUsage(value: unknown): value is DeviceUsage {
+  return (
+    isRecord(value) &&
+    typeof value.device_id === 'string' &&
+    typeof value.device_name === 'string' &&
+    typeof value.device_type === 'string' &&
+    isUsageTotals(value.totals) &&
+    Array.isArray(value.apps) &&
+    value.apps.every(isAppUsage) &&
+    // Exactly one of the two is non-null in practice, but the guard only
+    // checks "null or array": which one the server fills is its call, and the
+    // UI picks whichever it got rather than insisting on a pairing.
+    (value.hourly === null ||
+      (Array.isArray(value.hourly) && value.hourly.every(isHourUsage))) &&
+    (value.daily === null ||
+      (Array.isArray(value.daily) && value.daily.every(isDayUsage)))
+  )
+}
+
+export function isUsageResponse(value: unknown): value is UsageResponse {
+  return (
+    isRecord(value) &&
+    // Structure only: `window` is not checked against the known values, so a
+    // window the backend adds later still renders instead of blanking the tab.
+    typeof value.window === 'string' &&
+    typeof value.timezone === 'string' &&
+    typeof value.from === 'string' &&
+    typeof value.to === 'string' &&
+    Array.isArray(value.devices) &&
+    value.devices.every(isDeviceUsage)
+  )
+}
+
+/**
+ * Parses the `GET /api/v1/usage` body. Returns null when the payload is not the
+ * expected envelope or any device entry is malformed; the caller shows the same
+ * error state it uses for a failed request rather than rendering half a chart.
+ */
+export function parseUsage(value: unknown): UsageResponse | null {
+  return isUsageResponse(value) ? value : null
 }
 
 /**

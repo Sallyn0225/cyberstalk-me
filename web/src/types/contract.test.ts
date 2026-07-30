@@ -4,7 +4,10 @@ import {
   isDeviceState,
   parseSnapshot,
   parseStreamEvent,
+  parseUsage,
   type DeviceState,
+  type DeviceUsage,
+  type UsageResponse,
 } from '@/types/contract'
 
 /** A well-formed device, mirroring what the Go server encodes. */
@@ -90,6 +93,147 @@ describe('parseSnapshot', () => {
 
   it('rejects the whole payload when any entry is malformed', () => {
     expect(parseSnapshot([device(), { device_id: 'broken' }])).toBeNull()
+  })
+})
+
+/** A well-formed device usage entry for the "today" window. */
+function deviceUsage(overrides: Partial<DeviceUsage> = {}): DeviceUsage {
+  return {
+    device_id: 'win-desktop',
+    device_name: '我的台式机',
+    device_type: 'windows',
+    totals: { active_seconds: 16_320, idle_seconds: 4200, locked_seconds: 3600 },
+    apps: [
+      {
+        app: 'VS Code',
+        seconds: 12_000,
+        activities: [
+          { description: '在写代码', seconds: 9000 },
+          { description: '在看日志', seconds: 3000 },
+        ],
+      },
+    ],
+    hourly: [{ hour: 14, seconds: 1800, top_app: 'VS Code' }],
+    daily: null,
+    ...overrides,
+  }
+}
+
+function usage(overrides: Partial<UsageResponse> = {}): UsageResponse {
+  return {
+    window: 'today',
+    timezone: 'Asia/Shanghai',
+    from: '2026-07-29T16:00:00Z',
+    to: '2026-07-30T04:30:00Z',
+    devices: [deviceUsage()],
+    ...overrides,
+  }
+}
+
+describe('parseUsage', () => {
+  it('accepts the today shape (hourly filled, daily null)', () => {
+    const parsed = parseUsage(usage())
+    expect(parsed?.devices[0].hourly).toHaveLength(1)
+    expect(parsed?.devices[0].daily).toBeNull()
+  })
+
+  it('accepts the 7d/30d shape (daily filled, hourly null)', () => {
+    const parsed = parseUsage(
+      usage({
+        window: '7d',
+        devices: [
+          deviceUsage({
+            hourly: null,
+            daily: [{ date: '2026-07-30', seconds: 1800, top_app: 'VS Code' }],
+          }),
+        ],
+      }),
+    )
+    expect(parsed?.devices[0].hourly).toBeNull()
+    expect(parsed?.devices[0].daily).toHaveLength(1)
+  })
+
+  it('accepts an empty window: no devices, or a device with zero everything', () => {
+    expect(parseUsage(usage({ devices: [] }))?.devices).toEqual([])
+    const idle = parseUsage(
+      usage({
+        devices: [
+          deviceUsage({
+            totals: { active_seconds: 0, idle_seconds: 0, locked_seconds: 0 },
+            apps: [],
+            hourly: [],
+          }),
+        ],
+      }),
+    )
+    expect(idle?.devices[0].apps).toEqual([])
+  })
+
+  it('accepts a window value it does not know yet', () => {
+    // Same reason as device_type: structure is checked, the string union is not.
+    expect(parseUsage(usage({ window: '90d' as never }))).not.toBeNull()
+  })
+
+  it('rejects a missing or wrongly typed envelope field', () => {
+    expect(parseUsage(null)).toBeNull()
+    expect(parseUsage([deviceUsage()])).toBeNull()
+    const { timezone: _timezone, ...noTimezone } = usage()
+    expect(parseUsage(noTimezone)).toBeNull()
+    expect(parseUsage({ ...usage(), devices: null })).toBeNull()
+    expect(parseUsage({ ...usage(), from: 0 })).toBeNull()
+  })
+
+  it('rejects malformed nesting anywhere in a device entry', () => {
+    expect(parseUsage(usage({ devices: [{ device_id: 'broken' } as never] }))).toBeNull()
+    // totals is a Go value type: null is not a legal payload.
+    expect(
+      parseUsage(usage({ devices: [deviceUsage({ totals: null as never })] })),
+    ).toBeNull()
+    expect(
+      parseUsage(
+        usage({
+          devices: [deviceUsage({ apps: [{ app: 'VS Code', seconds: 1 } as never] })],
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      parseUsage(
+        usage({
+          devices: [
+            deviceUsage({
+              apps: [
+                {
+                  app: 'VS Code',
+                  seconds: 1,
+                  activities: [{ description: '在写代码' } as never],
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      parseUsage(usage({ devices: [deviceUsage({ hourly: [{ hour: 14 } as never] })] })),
+    ).toBeNull()
+    expect(
+      parseUsage(
+        usage({
+          devices: [
+            deviceUsage({ hourly: null, daily: [{ date: '2026-07-30' } as never] }),
+          ],
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects hourly/daily values that are neither null nor an array', () => {
+    expect(
+      parseUsage(usage({ devices: [deviceUsage({ hourly: undefined as never })] })),
+    ).toBeNull()
+    expect(
+      parseUsage(usage({ devices: [deviceUsage({ daily: 0 as never })] })),
+    ).toBeNull()
   })
 })
 

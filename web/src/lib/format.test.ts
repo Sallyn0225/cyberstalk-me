@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   deviceTypeLabel,
+  formatDay,
+  formatDuration,
+  formatHour,
   formatIdle,
   networkLabel,
   timeAgo,
@@ -66,6 +69,60 @@ describe('formatIdle', () => {
     expect(formatIdle(-1)).toBe('未知')
     expect(formatIdle(Number.NaN)).toBe('未知')
     expect(formatIdle(Number.POSITIVE_INFINITY)).toBe('未知')
+  })
+})
+
+describe('formatDuration', () => {
+  it('shows seconds only below a minute', () => {
+    expect(formatDuration(0)).toBe('0 秒')
+    expect(formatDuration(1)).toBe('1 秒')
+    expect(formatDuration(59)).toBe('59 秒')
+    expect(formatDuration(59.9)).toBe('59 秒')
+  })
+
+  it('shows whole minutes below an hour', () => {
+    expect(formatDuration(60)).toBe('1 分')
+    expect(formatDuration(3599)).toBe('59 分')
+  })
+
+  it('shows hours plus minutes, dropping a zero minute part', () => {
+    expect(formatDuration(3600)).toBe('1 小时')
+    expect(formatDuration(3660)).toBe('1 小时 1 分')
+    expect(formatDuration(16_320)).toBe('4 小时 32 分')
+  })
+
+  it('does not cap hours — a 30-day total is legitimately huge', () => {
+    expect(formatDuration(360_000)).toBe('100 小时')
+    expect(formatDuration(462_300)).toBe('128 小时 25 分')
+  })
+
+  it('returns 未知 for negative or non-finite input', () => {
+    expect(formatDuration(-1)).toBe('未知')
+    expect(formatDuration(Number.NaN)).toBe('未知')
+    expect(formatDuration(Number.POSITIVE_INFINITY)).toBe('未知')
+  })
+})
+
+describe('formatHour', () => {
+  it('labels the hour slot', () => {
+    expect(formatHour(0)).toBe('0 时')
+    expect(formatHour(23)).toBe('23 时')
+  })
+
+  it('returns 未知 for non-finite input', () => {
+    expect(formatHour(Number.NaN)).toBe('未知')
+  })
+})
+
+describe('formatDay', () => {
+  it('shortens the server date', () => {
+    expect(formatDay('2026-07-30')).toBe('7/30')
+    expect(formatDay('2026-01-01')).toBe('1/1')
+  })
+
+  it('passes unexpected shapes through instead of printing NaN', () => {
+    expect(formatDay('2026-07')).toBe('2026-07')
+    expect(formatDay('')).toBe('')
   })
 })
 

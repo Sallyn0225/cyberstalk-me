@@ -38,6 +38,41 @@ export function formatIdle(seconds: number): string {
   return `${Math.floor(seconds / HOUR)} 小时`
 }
 
+/**
+ * Accumulated usage, e.g. "4 小时 32 分" / "12 分" / "38 秒".
+ *
+ * Seconds only show below one minute: a usage total is a sum of many buckets,
+ * so "1 小时 3 分 7 秒" is noise. Hours are never capped — a 30-day total
+ * legitimately reads "128 小时". Non-finite and negative input yields "未知",
+ * same as formatIdle.
+ */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '未知'
+  const total = Math.floor(seconds)
+  if (total < MINUTE) return `${total} 秒`
+  if (total < HOUR) return `${Math.floor(total / MINUTE)} 分`
+  const hours = Math.floor(total / HOUR)
+  const minutes = Math.floor((total % HOUR) / MINUTE)
+  return minutes === 0 ? `${hours} 小时` : `${hours} 小时 ${minutes} 分`
+}
+
+/** Hour-slot label for the "today" chart: 14 -> "14 时". */
+export function formatHour(hour: number): string {
+  if (!Number.isFinite(hour)) return '未知'
+  return `${Math.trunc(hour)} 时`
+}
+
+/**
+ * Day-slot label for the 7d / 30d chart: "2026-07-30" -> "7/30". Anything that
+ * is not the server's `YYYY-MM-DD` is shown as-is rather than turned into
+ * "NaN/NaN".
+ */
+export function formatDay(date: string): string {
+  const match = /^\d{4}-(\d{2})-(\d{2})$/.exec(date)
+  if (match === null) return date
+  return `${Number(match[1])}/${Number(match[2])}`
+}
+
 const NETWORK_LABELS: Record<string, string> = {
   wifi: 'Wi-Fi',
   cellular: '移动网络',
