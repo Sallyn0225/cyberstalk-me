@@ -249,3 +249,48 @@
 - 07-30-screen-time-web 是父任务剩下的最后一个子任务，可直接照 shared/contract.go 的新类型镜像 web/src/types/contract.ts
 - design.md §11 里 frontend/state-management.md 与 README.md 两项刻意留给 web 子任务：它们描述的是用户可见面，而这一面此刻还不存在
 - VPS 弱密码 + SSH 密码登录仍未处理，这是 07-30-deploy-docker-cicd 之后第二次记录。原先的 vps.md 已不在仓库，连接信息现只存在于仓库外的 memory/vps-access.md
+
+
+## Session 3: 前端屏幕使用时间视图（07-30-screen-time-web）
+
+**Date**: 2026-07-30
+**Task**: 前端屏幕使用时间视图（07-30-screen-time-web）
+**Branch**: `main`
+
+### Summary
+
+在站点加「使用时间」tab：窗口/设备选择、活跃-挂机-锁屏总计、两级应用排行、小时与按日分布。不引路由、不引图表库、不新增运行时依赖，父任务 07-30-screen-time 的三个子任务至此全部交付。
+
+### Main Changes
+
+- useUsage(window) 是第二个服务端状态源：plain fetch + AbortController，无 SSE 无轮询；失败时丢弃上一窗口的数据（拿旧窗口数字配新窗口标签等于说谎）
+- useDeviceStream 留在 App 顶层无条件调用，tab 只决定渲染什么。这是本任务最容易犯的错，切 tab 会反复建拆 SSE
+- 新增 lib/usage.ts（design §8.1 未列）：sharePercent/maxSeconds 把「分母为 0 出 NaN」这一 AC3.6 主要失败模式收进一个带单测的纯函数，三处除法共用
+- 图表是 div：24 小时槽 / N 天槽全部由服务端补齐，空槽渲染成空 track；每根柱子带 sr-only 文本 + title，高度不作为唯一编码
+- parseUsage 只校验结构不校验 window 取值（对齐 parseSnapshot），hourly/daily 校验为 null|Array
+- 时长用 tabular-nums 而非 font-mono：中英混排下 mono 对 CJK 的 fallback 会把「小时/分」拉得很开
+- shadcn 生成 tabs/toggle/toggle-group/collapsible，package.json 未动（radix-ui 已在依赖）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b73c7dc` | (see git log) |
+| `484058c` | (see git log) |
+
+### Testing
+
+- [OK] [OK] lint / typecheck / vitest（46 个测试）/ build 全绿；go build ./... 与 go test ./... 全绿；npm run build 后 git diff --exit-code -- server/cmd/server/web 干净（AC3.9）
+- [OK] [OK] 写了个一次性 seeder 灌 30 天真实桶数据（含两天空档、10 个应用触发折叠、idle/locked 桶），验完连 scratch db 一起删除。三个窗口形态切换、空数据设备、Chrome 展开后 3:28+2:35+1:22=7:25 与 app 总计一致，均在浏览器实测通过
+- [OK] [OK] AC3.4 用插桩证明而非目测：patch window.EventSource 计数后连续 4 次切 tab，新建数为 0、close 数为 0，状态仍「实时」，控制台无警告
+- [OK] [OK] AC3.5 杀掉后端进程后切换窗口，显示错误态不白屏；AC3.6 空数据设备显示「近 30 天内这台设备没有任何记录」而非空图表；390px 移动端条形换行与 30 根柱子的稀疏刻度均不重叠
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务 07-30-screen-time 的 15 条 AC 一条未勾，AC1-AC6/AC14/AC15 需要 Windows 客户端真机连续跑一段时间才能验（跨整点拆分、超 maxGap 不计入、锁屏归类、诱饵标题复验），这是父任务收尾的唯一剩余工作
+- Radix Tabs 会卸载非活动面板，切走再回来窗口/设备选择回到默认。符合 tab 局部状态的设定，若要记住选择需把两个 state 提到 App
+- VPS 弱密码 + SSH 密码登录仍未处理，这是第三次记录
