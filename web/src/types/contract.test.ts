@@ -45,6 +45,23 @@ describe('isDeviceState', () => {
     expect(isDeviceState(device({ network: 'bluetooth' as never }))).toBe(true)
   })
 
+  it('treats activity.locked as optional so older agents keep their card', () => {
+    const base = device().activity
+    // Present and boolean — what a current agent sends.
+    expect(isDeviceState(device({ activity: { ...base, locked: true } }))).toBe(true)
+    expect(isDeviceState(device({ activity: { ...base, locked: false } }))).toBe(true)
+    // Absent — an agent built before the field existed. Its device must still
+    // render; the UI reads a missing flag as "not locked".
+    expect(isDeviceState(device({ activity: base }))).toBe(true)
+    // Present but the wrong type is a real contract break, not an old client.
+    expect(
+      isDeviceState(device({ activity: { ...base, locked: 'yes' as never } })),
+    ).toBe(false)
+    expect(
+      isDeviceState(device({ activity: { ...base, locked: null as never } })),
+    ).toBe(false)
+  })
+
   it('rejects missing or wrongly typed required fields', () => {
     expect(isDeviceState(null)).toBe(false)
     expect(isDeviceState([device()])).toBe(false)

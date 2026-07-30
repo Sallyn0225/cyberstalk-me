@@ -65,6 +65,9 @@ func TestResolve(t *testing.T) {
 		wantTitleReads int
 		wantApp        string
 		wantDesc       string
+		// wantLocked is the structured lock-screen flag. Only the no-foreground
+		// -window branch sets it; the server relies on that being exact.
+		wantLocked bool
 	}{
 		{
 			name: "rule match", proc: "code.exe", title: canaryTitle,
@@ -87,7 +90,11 @@ func TestResolve(t *testing.T) {
 		},
 		{
 			name: "no foreground window is locked", proc: "", title: canaryTitle,
-			wantTitleReads: 0, wantApp: "已锁屏", wantDesc: "人不在",
+			wantTitleReads: 0, wantApp: "已锁屏", wantDesc: "人不在", wantLocked: true,
+		},
+		{
+			name: "a blank process name is the same as no window", proc: "   ", title: canaryTitle,
+			wantTitleReads: 0, wantApp: "已锁屏", wantDesc: "人不在", wantLocked: true,
 		},
 		{
 			name: "title pattern first match wins", proc: "chrome.exe", title: "YouTube — github.com",
@@ -124,6 +131,9 @@ func TestResolve(t *testing.T) {
 			}
 			if *calls != tt.wantTitleReads {
 				t.Errorf("title getter called %d times, want %d", *calls, tt.wantTitleReads)
+			}
+			if got.Locked != tt.wantLocked {
+				t.Errorf("Resolve(%q).Locked = %v, want %v", tt.proc, got.Locked, tt.wantLocked)
 			}
 		})
 	}
@@ -178,6 +188,12 @@ func TestResolveIdle(t *testing.T) {
 			// Idle does not hide what the app is; the site has its own badge.
 			if got.App != "VS Code" || got.Description != "在写代码" {
 				t.Errorf("idle changed the activity: %+v", got)
+			}
+			// Being idle in front of an open window is not being locked. The
+			// server ranks locked above idle, so confusing the two would move
+			// real app time into the lock-screen bucket.
+			if got.Locked {
+				t.Errorf("idle with a foreground window reported Locked = true: %+v", got)
 			}
 		})
 	}

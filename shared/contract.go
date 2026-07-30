@@ -40,6 +40,18 @@ type Activity struct {
 	Description string `json:"description"`  // mapped friendly description
 	Idle        bool   `json:"idle"`         // user is idle (no input for a while)
 	IdleSeconds int    `json:"idle_seconds"` // seconds since last input
+	// Locked reports that there was no foreground window at all (lock screen
+	// or session switch). It is a structured flag rather than something the
+	// server infers from App, because App is a user-configured string
+	// (locked_app in the agent config) that the server cannot match on.
+	//
+	// A client that predates this field omits it, which decodes to false. That
+	// degrades badly, not safely: Windows keeps reporting zero idle seconds
+	// while the screen is locked, so an old agent's locked stretches look like
+	// active use of whatever locked_app is named. Upgrading the agent is the
+	// only fix — the server cannot recover the distinction on its own, which
+	// is exactly why this flag exists.
+	Locked bool `json:"locked"`
 }
 
 // Battery is the device power state. Level may be nil when the OS cannot

@@ -21,6 +21,12 @@ export interface Activity {
   description: string
   idle: boolean
   idle_seconds: number
+  /**
+   * No foreground window at all (lock screen / session switch). Go: a plain
+   * `bool`, but optional here because an agent older than the field omits it —
+   * see the guard below. Read it as `activity.locked === true`.
+   */
+  locked?: boolean
 }
 
 /** Go: `*Battery`; `level` is `*int` and is null when the OS can't report it. */
@@ -69,7 +75,11 @@ function isActivity(value: unknown): value is Activity {
     typeof value.app === 'string' &&
     typeof value.description === 'string' &&
     typeof value.idle === 'boolean' &&
-    typeof value.idle_seconds === 'number'
+    typeof value.idle_seconds === 'number' &&
+    // Optional on purpose. Requiring it would make every device behind an
+    // older agent fail the guard and vanish from the page — the same reason
+    // the string unions above are not checked.
+    (value.locked === undefined || typeof value.locked === 'boolean')
   )
 }
 

@@ -150,9 +150,12 @@ func (m *Mapper) Resolve(process string, title func() string, idleSeconds int) s
 
 	key := normalize(process)
 	if key == "" {
-		// No foreground window: locked screen or a session switch.
+		// No foreground window: locked screen or a session switch. The flag is
+		// what the server keys on — lockedApp is a user-configured string it
+		// cannot recognize.
 		act.App = m.lockedApp
 		act.Description = m.lockedDescription
+		act.Locked = true
 		return act
 	}
 
