@@ -46,9 +46,12 @@ Status code mapping:
 | Condition | Status |
 |-----------|--------|
 | Malformed JSON body / missing required fields | 400 |
-| Missing or invalid `Authorization: Bearer` token, token/device_id mismatch | 401 |
-| Unknown `device_id` | 404 |
+| Missing or invalid `Authorization: Bearer` token, or body `device_id` mismatch with the token-bound device | 401 |
 | Anything unexpected | 500 (body is the generic `"internal error"` — never the wrapped error text) |
+
+There is no 404 on the report endpoint: an unknown token and an unknown
+device both collapse into the 401 `"invalid device token"` at the auth layer
+(`ErrDeviceNotFound` is never surfaced as 404).
 
 Write them through one helper so the shape can't drift:
 

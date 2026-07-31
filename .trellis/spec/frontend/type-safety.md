@@ -29,6 +29,10 @@
   optional `?` — the backend serializes explicit `null`, and `| null` forces
   handling at use sites.
   - `Activity` is a Go value type in `DeviceState` → `activity: Activity`.
+    Its `locked` is the one exception to the value-type rule: a Go `bool`
+    that is `?` optional here, because clients older than the field omit it
+    and the guard must not drop the whole device for that. Requiring it would
+    make every device behind an old agent vanish from the page.
   - `Battery.Level` is `*int` → `level: number | null`.
   - `*Battery` / `*NetworkType` → `battery: Battery | null`, `network: … | null`.
 
@@ -42,6 +46,12 @@ export interface Activity {
   description: string
   idle: boolean
   idle_seconds: number
+  /**
+   * No foreground window at all (lock screen / session switch). Go: a plain
+   * `bool`, but optional here because an agent older than the field omits it.
+   * Read it as `activity.locked === true`.
+   */
+  locked?: boolean
 }
 
 export interface Battery {

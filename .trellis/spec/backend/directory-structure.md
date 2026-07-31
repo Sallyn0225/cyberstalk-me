@@ -25,7 +25,8 @@ cyberstalk-me/
 │       ├── api/             # HTTP handlers, router (chi), SSE endpoint
 │       ├── hub/             # SSE broadcast hub (subscriber set, fan-out)
 │       ├── state/           # online/offline tracker (last_seen, ticker scan)
-│       ├── store/           # SQLite persistence (devices, device_state)
+│       ├── store/           # SQLite persistence (devices, device_state, usage_bucket)
+│       ├── usage/           # screen-time aggregation: reports -> hourly buckets -> wire response (pure, no I/O)
 │       └── config/          # env-based configuration
 ├── client-windows/          # Go module: Windows reporter agent (single exe)
 │   ├── cmd/agent/
@@ -53,13 +54,15 @@ cyberstalk-me/
   third-party imports beyond stdlib. This keeps it importable from any module
   without dependency bleed.
 - **`server/internal/` packages are organized by responsibility, not by layer
-  ceremony.** Four packages (`api`, `hub`, `state`, `store`) cover the whole MVP;
-  do not add `service/`, `repository/`, `dto/` style layers on top.
+  ceremony.** Five packages (`api`, `hub`, `state`, `store`, `usage`) cover the
+  whole MVP; do not add `service/`, `repository/`, `dto/` style layers on top.
 - **All packages under `internal/`** except `shared/` — nothing else is meant to
   be imported across modules.
-- Dependency direction: `api` → (`hub`, `state`, `store`, `shared`); `hub`,
-  `state`, `store` do not import `api` and do not import each other except
-  `state` → `hub` (offline events are broadcast).
+- Dependency direction: `api` → (`hub`, `state`, `store`, `usage`, `shared`);
+  `hub`, `state`, `store`, `usage` do not import `api` and do not import each
+  other except `state` → `hub` (offline events are broadcast). `usage` is pure
+  (no I/O, no `store` import): the api layer does the trivial conversion
+  between its bucket types and store's row structs.
 - Wiring (constructing store, hub, tracker, router) happens in
   `cmd/server/main.go`, not in package `init()`.
 - **`client-windows/internal/` packages are isolated by design.** `config`,

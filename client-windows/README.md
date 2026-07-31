@@ -146,7 +146,7 @@ cd server && go run ./cmd/server register-device win-desktop "我的台式机" w
 | 键 | 默认值 | 说明 |
 |----|--------|------|
 | `server_url` | 必填 | 服务端地址，`http(s)://host[:port]`，不带路径 |
-| `device_id` | 必填 | 必须与 token 绑定的设备一致，否则服务端返回 400 |
+| `device_id` | 必填 | 必须与 token 绑定的设备一致，否则服务端返回 401 |
 | `token` | 必填 | `register-device` 打印的 64 位 token，**机密** |
 | `interval` | `10s` | 上报间隔。接受 Go duration（`10s`、`1m30s`）或纯秒数（`10`） |
 | `device_name` | 空 | 只影响本地日志可读性。页面上的名字以服务端注册时为准，改名请重新 `register-device` |

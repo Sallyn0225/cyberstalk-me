@@ -87,9 +87,12 @@ race-enabled test run, not for the shipped binary.
   snapshot shape, and the offline-threshold transition (inject a fake clock
   into the state tracker: it takes a `now func() time.Time`).
 - Win32 collectors (`client-windows/internal/collect`) are exempt from unit
-  tests; the mapping package (`internal/mapping`) is pure and **must** be
-  tested, including the "unknown process falls back to generic description"
-  rule — that's the privacy boundary.
+  tests, except `TestIsLockScreenProcess`, which pins the lock-screen process
+  set (`lockapp.exe`, `logonui.exe`) — the set that keeps Win+L from reading
+  as app usage on Windows 11 (see the cross-layer thinking guide). The mapping
+  package (`internal/mapping`) is pure and **must** be tested, including the
+  "unknown process falls back to generic description" rule — that's the
+  privacy boundary.
 - The same split applies to setup mode: `internal/setup` is pure and must be
   tested (handlers with `httptest` and a stub `Source`); `internal/winsetup` is
   a thin Win32 adapter, but it still carries two tests that are not about its
