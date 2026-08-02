@@ -24,6 +24,10 @@ compose.override.yml
 *.db-shm
 *.db-wal
 
+# Local Windows client install (exe + config.yaml with device token).
+# A deployment copy, not source: rebuild and re-register instead.
+/client-windows/bin/
+
 # Go cross-build outputs in module roots (linux targets have no .exe)
 /client-windows/agent
 /server/server
